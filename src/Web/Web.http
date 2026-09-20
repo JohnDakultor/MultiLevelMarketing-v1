@@ -1,0 +1,17 @@
+@Host = https://localhost:7179
+@OrganizationId = 00000000-0000-0000-0000-000000000000
+@AgentId = 00000000-0000-0000-0000-000000000000
+@BearerToken = <token>
+
+GET {{Host}}/api/organizations/default/public-config
+
+###
+GET {{Host}}/api/organizations/{{OrganizationId}}/products?page=1&pageSize=20
+
+###
+GET {{Host}}/api/organizations/{{OrganizationId}}/agents/{{AgentId}}/network/tree?depth=3
+Authorization: Bearer {{BearerToken}}
+
+###
+GET {{Host}}/api/organizations/{{OrganizationId}}/agents/{{AgentId}}/finance/wallet
+Authorization: Bearer {{BearerToken}}

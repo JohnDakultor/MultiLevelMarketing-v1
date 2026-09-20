@@ -1,0 +1,9 @@
+{
+  "modular_mlm.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\Application",
+  "modular_mlm.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\Domain",
+  "modular_mlm.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\Infrastructure",
+  "modular_mlm.ServiceDefaults, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\ServiceDefaults",
+  "modular_mlm.Shared, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\Shared",
+  "modular_mlm.TestAppHost, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\tests\\TestAppHost",
+  "modular_mlm.Web, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "C:\\Users\\User\\Desktop\\modular_mlm_platform\\modular_mlm\\src\\Web"
+}

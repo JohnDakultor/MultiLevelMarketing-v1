@@ -1,0 +1,804 @@
+MODULAR MLM — SDD IMPLEMENTATION SUB-PHASES
+===========================================
+
+Purpose
+-------
+This roadmap closes the gaps found during the full codebase-to-SDD audit.
+Complete the sub-phases in order unless a dependency explicitly allows parallel work.
+
+Rules for every sub-phase
+-------------------------
+1. Keep Domain independent of Application, Infrastructure, and Web.
+2. Keep commands, handlers, validators, queries, and DTO models in separate files.
+3. Queries with DTOs place DTO files under a Models subfolder.
+4. Enforce authorization and organization ownership inside Application handlers.
+5. Treat Web role checks as UX/routing protection, not the only authorization boundary.
+6. Use decimal for money and volume. Never use float or double for financial values.
+7. Preserve immutable financial ledgers; corrections must create linked reversal entries.
+8. External provider calls must be idempotent and must not remain inside long DB transactions.
+9. Add database constraints as the final concurrency and idempotency protection.
+10. A feature is incomplete until Domain, Application, Infrastructure, Web, migration, and tests are covered where relevant.
+
+
+SUB-PHASE 0 — REMOVE EMPTY AND STALE SCAFFOLDING
+=================================================
+
+0.1 Classify every zero-byte runtime file
+    - Mark each as Required, Duplicate, Obsolete, or Future Extension.
+    - Do not leave zero-byte C# files in a completed feature.
+
+0.2 Remove or consolidate duplicate types
+    - Resolve the empty Domain/Enums/QualificationResult.cs because the real
+      QualificationResult currently lives in Domain/Services/QualificationEvaluator.cs.
+    - Decide whether IQualificationEvaluator is required. Implement and consume it,
+      or remove it if QualificationEvaluator remains a pure domain service.
+
+0.3 Implement required domain-event types
+    - AdministratorInvitedEvent
+    - AdministratorInvitationAcceptedEvent
+    - CommissionReleasedEvent
+    - WalletFundsReservedEvent
+    - PayoutApprovedEvent
+    - PayoutCompletedEvent
+    - PayoutFailedEvent
+
+0.4 Clean stale documentation
+    - Update web/API_ANALYSIS.md.
+    - Remove claims that refund, audit, health, or CORS support is still pseudocode.
+    - Update the Admin dashboard API-gap message.
+
+Completion checks
+    - No zero-byte runtime source files remain.
+    - No duplicate QualificationResult definitions exist.
+    - The solution and frontend compile.
+
+Sub-phase 0 implementation record
+    Required and implemented now:
+    - AdministratorInvitedEvent
+    - AdministratorInvitationAcceptedEvent
+    - CommissionReleasedEvent
+    - WalletFundsReservedEvent
+    - PayoutApprovedEvent
+    - PayoutCompletedEvent
+    - PayoutFailedEvent
+    - GetPairingHistoryQueryValidator
+
+    Duplicate or obsolete scaffolding removed:
+    - Domain/Enums/QualificationResult.cs; the implemented result type remains
+      beside QualificationEvaluator in Domain/Services.
+    - Application/Common/Interfaces/IQualificationEvaluator.cs; the evaluator
+      remains a stateless, pure domain service and has no infrastructure port.
+    - Empty test placeholders; their required coverage remains listed in the
+      relevant sub-phases below.
+
+    Premature future-extension scaffolding removed until its owning sub-phase:
+    - WalletSettings and wallet policy/calculator placeholders.
+    - Wallet adjustment, commission release, and wallet-entry Application files.
+    - Commission release background job/worker and the Wallet Web endpoint.
+    - Empty functional, domain, and infrastructure test placeholders for those
+      deferred workflows.
+
+    Classification rule applied:
+    - Required: implemented with real behavior in this sub-phase.
+    - Duplicate/Obsolete: removed because an authoritative implementation exists
+      or no boundary abstraction is needed.
+    - Future Extension: removed rather than leaving misleading zero-byte source;
+      recreate it only when implementing the owning roadmap sub-phase.
+
+
+SUB-PHASE 1 — AUTHORIZATION AND TENANT-SAFETY HOTFIX
+=====================================================
+
+1.1 Introduce a reusable Application authorization service/policy
+    It must answer:
+    - Is the current user the requested Customer?
+    - Is the current user the requested Agent?
+    - May the current user administer this Organization?
+    - May the current Agent inspect the requested downline/network node?
+
+1.2 Fix Agent application impersonation
+    - ApplyAsAgent must derive UserId from IUser/current authentication.
+    - Do not accept another user's identity as an ordinary request field.
+    - Administrator-created applications, if required, must use a separate Admin command.
+
+1.3 Fix checkout and payment-session ownership
+    - Checkout must derive or verify CustomerId from the authenticated user.
+    - Payment-session creation must verify that the current customer owns the order,
+      or that the caller is an authorized Organization Administrator.
+    - Validate every order and customer against OrganizationId.
+
+1.4 Protect Agent-scoped reads
+    Apply ownership/visibility checks to:
+    - GetWalletSummary
+    - GetAgentEarningsSummary
+    - GetAgentCommissionHistory
+    - GetCommissionDetails
+    - GetBinaryVolumeSummary
+    - GetPairingHistory
+    - GetBinaryTree
+    - GetDownline
+    - GetDirectPlacementChildren
+    - GetPlacementAncestors
+    - GetDirectRecruits
+    - GetAgentLegSummary
+    - Referral dashboard/link/code operations
+
+1.5 Protect administrator mutations inside handlers
+    Add Application-layer Organization-admin checks to:
+    - Product and commission-profile mutations
+    - Commission-plan mutations
+    - Agent lifecycle and placement mutations
+    - Organization settings mutations
+    - Refund and reconciliation operations
+
+1.6 Add functional security coverage
+    Test:
+    - Agent A cannot read Agent B's wallet, earnings, commissions, or private network.
+    - Customer A cannot create a payment session for Customer B's order.
+    - A user cannot submit an Agent application for another user.
+    - An Administrator cannot access another Organization.
+    - Route-role checks and handler ownership checks both apply.
+
+Completion checks
+    - No protected handler trusts route/body identity without verification.
+    - Cross-Organization and cross-user tests pass on PostgreSQL.
+    - Unauthorized, forbidden, and not-found behavior is consistent.
+
+Sub-phase 1 implementation record
+    - Reusable request-scope authorization verifies Organization Administrator,
+      Customer, Agent, Order, Payout, and downline visibility boundaries.
+    - ApplyAsAgent derives UserId from IUser and no longer accepts it from clients.
+    - Checkout and payment-session requests verify Customer/Order ownership within
+      OrganizationId before their handlers execute.
+    - Agent-private reads use IAgentScopedRequest.
+    - Externally callable Administrator mutations use IOrganizationAdminRequest;
+      internal webhook and worker commands remain separate.
+    - PostgreSQL functional tests cover cross-user, cross-Organization, route-role,
+      handler-scope, no-write-on-forbidden, and 401/403/404 behavior.
+
+
+SUB-PHASE 2 — WALLET AVAILABILITY FOUNDATION
+=============================================
+
+2.1 Implement WalletSettings as an Organization-owned configuration
+    Suggested settings:
+    - CommissionReleaseTrigger
+    - ReleaseDelayDays
+    - ReturnWindowDays
+    - MinimumPayoutAmount
+    - AllowNegativeRecoverableBalance
+    - MaximumNegativeBalance
+
+2.2 Implement CommissionAvailabilityPolicy
+    Inputs should include:
+    - Commission creation/payment timestamp
+    - Order fulfillment/delivery state
+    - Refund/return window
+    - Organization wallet settings
+    - Current time
+
+    Output should explain whether the commission is releasable and why.
+
+2.3 Implement WalletBalanceCalculator
+    Calculate from immutable WalletEntry records:
+    - Pending
+    - Available
+    - Held/reserved
+    - Paid out
+    - Recoverable negative balance
+    - Net balance
+
+2.4 Implement ReleasePendingCommissions command
+    Files:
+    - ReleasePendingCommissionsCommand.cs
+    - ReleasePendingCommissionsCommandHandler.cs
+    - ReleasePendingCommissionsCommandValidator.cs
+
+    Handler requirements:
+    - Select eligible pending commission wallet entries.
+    - Prevent duplicate release entries.
+    - Release commission status and wallet credit atomically.
+    - Raise CommissionReleasedEvent.
+    - Process in bounded batches.
+
+2.5 Implement CommissionReleaseJob and CommissionReleaseWorker
+    - Run on configurable schedule.
+    - Process Organizations in bounded batches.
+    - Be safe after crashes and retries.
+    - Record duration, processed count, failure count, and lag.
+
+2.6 Register services and configuration
+    - Register the worker and job.
+    - Validate wallet settings at startup.
+    - Add required EF configuration and migration.
+
+Completion checks
+    - A paid order creates PendingCredit.
+    - An ineligible commission remains pending.
+    - An eligible commission becomes available exactly once.
+    - A retry does not duplicate wallet value.
+    - The release worker processes PostgreSQL records successfully.
+
+
+SUB-PHASE 3 — WALLET LEDGER, ADJUSTMENT, AND PAYOUT ELIGIBILITY
+===============================================================
+
+3.1 Implement GetWalletEntries
+    Files:
+    - GetWalletEntriesQuery.cs
+    - GetWalletEntriesQueryHandler.cs
+    - GetWalletEntriesQueryValidator.cs
+    - Models/WalletEntryDto.cs
+
+    Requirements:
+    - Organization and Agent ownership authorization.
+    - Server-side pagination.
+    - Optional entry-type and date filters.
+    - Stable newest-first ordering.
+    - Return source and reversal linkage without exposing sensitive provider data.
+
+3.2 Implement CreateWalletAdjustment
+    Files:
+    - CreateWalletAdjustmentCommand.cs
+    - CreateWalletAdjustmentCommandHandler.cs
+    - CreateWalletAdjustmentCommandValidator.cs
+
+    Requirements:
+    - Administrator-only.
+    - Mandatory reason.
+    - Explicit credit/debit adjustment type.
+    - Organization and currency validation.
+    - Immutable WalletEntry creation.
+    - Audit record in the same transaction.
+    - Unique idempotency key.
+
+3.3 Implement PayoutEligibilityEvaluator
+    Evaluate:
+    - Agent status
+    - Wallet status
+    - Verified payout account
+    - Minimum payout setting
+    - Available balance
+    - Existing holds
+    - Compliance/admin hold
+    - Currency
+    - Negative-balance policy
+
+3.4 Refactor RequestPayout to use the evaluator
+    - Do not duplicate eligibility rules in the handler.
+    - Reserve funds and create PayoutRequest atomically.
+    - Raise WalletFundsReservedEvent/PayoutRequestedEvent.
+    - Apply the financial rate-limit policy to the actual request endpoint.
+
+3.5 Implement Web Wallets endpoint group
+    Recommended routes:
+    - GET wallet summary
+    - GET wallet entries
+    - POST Admin wallet adjustment
+
+3.6 Add wallet and payout tests
+    Complete:
+    - AgentWalletTests
+    - WalletBalanceCalculatorTests
+    - PayoutEligibilityEvaluatorTests
+    - GetWalletEntriesTests
+    - ReleasePendingCommissionsTests
+    - RequestPayoutTests
+    - CommissionReleaseJobTests
+
+Completion checks
+    - Agent can inspect their full ledger.
+    - Admin adjustment is audited and idempotent.
+    - Payout cannot exceed the available amount.
+    - Holds, releases, payouts, and reversals preserve financial invariants.
+
+
+SUB-PHASE 4 — COMPLETE AUDIT COVERAGE
+=====================================
+
+4.1 Add audit writing to Agent operations
+    - Approval
+    - Rejection
+    - Activation
+    - Suspension/reactivation
+    - Manual placement
+    - Automatic placement
+    - Referral-code regeneration
+
+4.2 Add audit writing to Catalog and Organization operations
+    - Product create/update/publish/archive
+    - Commission-profile create/assign/change
+    - Branding changes
+    - Feature settings
+    - Network settings
+    - Referral settings
+    - Commerce settings
+
+4.3 Add audit writing to financial operations
+    - Commission-plan create/publish/retire
+    - Wallet adjustments
+    - Refund requests/reversals
+    - Payout approval/rejection/process/failure
+    - Payout-account verification/rejection
+
+4.4 Add Identity/security audit events
+    - Administrator invitation creation, acceptance, revocation, and expiry
+    - Administrator role/account changes
+    - Admin login/security events where Identity provides a safe hook
+
+4.5 Enforce audit atomicity
+    - Domain state and its audit record must commit together.
+    - Never call SaveChanges from AuditWriter itself.
+    - Redact tokens, credentials, payout details, passwords, and secrets.
+
+4.6 Expand audit tests
+    - Assert actor, Organization, action, entity, reason, IP, user-agent, and trace ID.
+    - Assert cross-Organization query denial.
+    - Assert immutable records cannot be changed after save.
+    - Assert sensitive fields are redacted.
+
+Completion checks
+    - Every action named by SDD section 39 produces an audit record.
+    - MVP acceptance criterion 20 is covered by functional tests.
+
+
+SUB-PHASE 5 — CUSTOMER COMMERCE CONTRACT
+=========================================
+
+5.1 Implement product detail read model
+    - GetProductBySlugQuery
+    - Product detail DTO with variant IDs, SKU, price, stock status, attributes,
+      image data, BV display data, and publish status where appropriate.
+
+5.2 Implement cart use cases
+    Commands:
+    - AddCartItem
+    - UpdateCartItem
+    - RemoveCartItem
+    - ApplyReferralCode
+
+    Query:
+    - GetCart
+
+    Requirements:
+    - Authenticated and anonymous/session carts if V1 needs both.
+    - Organization ownership.
+    - Server-side product and price validation.
+    - Referral policy integration.
+
+5.3 Refactor checkout to consume the cart
+    - Derive CustomerId from current identity.
+    - Revalidate product, price, currency, stock, and referral attribution.
+    - Create order/item snapshots atomically.
+    - Clear or finalize the cart only after successful order creation.
+
+5.4 Add current-customer profile and address management
+    - Get current customer profile
+    - Update profile
+    - List/add/update/remove addresses
+    - Do not expose another customer's records.
+
+5.5 Implement customer order workflows
+    Queries:
+    - GetMyOrders
+    - GetOrderDetails
+
+    Commands:
+    - RequestCancellation
+    - RequestRefund
+
+    Include tracking/fulfillment state and authorized refund eligibility.
+
+5.6 Implement Web endpoints and frontend screens
+    - Product detail
+    - Cart
+    - Checkout/payment redirect
+    - Account profile
+    - Addresses
+    - Order history/details/tracking
+    - Cancellation/refund requests
+
+Completion checks
+    - Product response supplies the exact variant ID checkout requires.
+    - Customer completes browse-to-payment without manual IDs.
+    - Customer cannot inspect or mutate another customer's order.
+
+
+SUB-PHASE 6 — INVENTORY AND CATALOG ADMINISTRATION
+==================================================
+
+6.1 Choose the V1 inventory design
+    Preferred SDD model:
+    - InventoryItem with OnHand, Reserved, Available, and Version.
+
+    If ProductVariant.StockQuantity is retained, add equivalent reservation,
+    release, and concurrency semantics explicitly.
+
+6.2 Add optimistic concurrency
+    - Add a concurrency/version token.
+    - Add PostgreSQL constraint/migration.
+    - Convert concurrency failures into a stable 409 response.
+
+6.3 Implement catalog commands
+    - UpdateProduct
+    - ArchiveProduct
+    - AdjustInventory
+    - Variant create/update/archive if required
+
+6.4 Implement catalog queries
+    - GetAdminProduct
+    - GetInventory
+    - Category administration reads
+
+6.5 Add checkout reservation lifecycle
+    - Reserve inventory atomically.
+    - Release reservation on cancellation/payment expiration.
+    - Finalize reservation after provider-confirmed payment.
+    - Add abandoned checkout cleanup if reservations expire.
+
+6.6 Add concurrency tests
+    - Two checkouts compete for the last unit.
+    - Exactly one succeeds.
+    - Available stock never becomes negative.
+
+Completion checks
+    - Overselling is prevented by PostgreSQL-backed concurrency protection.
+    - Admin can inspect and adjust inventory with audit history.
+
+
+SUB-PHASE 7 — ORGANIZATION, BRANDING, AND MEDIA
+===============================================
+
+7.1 Implement Organization application use cases
+    - Create/provision Organization if multi-Organization onboarding is required
+    - UpdateOrganizationProfile
+    - UpdateBranding
+    - UpdateFeatureSettings
+    - UpdateCommerceSettings
+    - PublishBranding
+    - GetAdminOrganizationSettings
+
+7.2 Implement real object storage
+    - S3-compatible or selected production provider.
+    - Validate MIME type, extension, and file size.
+    - Generate safe object names.
+    - Return durable URLs.
+    - Never expose provider credentials.
+
+7.3 Add domain/subdomain organization resolution
+    - Resolve Organization by configured hostname for deployed frontend/API.
+    - Keep slug resolution as a development/admin fallback.
+    - Remove the ordinary user's need to manually type an Organization slug.
+
+7.4 Implement Admin frontend
+    - Organization profile
+    - Branding colors/logo
+    - Feature flags
+    - Currency/locale/time zone
+    - Domain settings
+
+Completion checks
+    - Admin can change name, logo, and colors.
+    - Public config and frontend update from persisted configuration.
+    - No local source-code edit is needed to onboard a brand.
+
+
+SUB-PHASE 8 — AGENT AND ADMIN OPERATIONS
+========================================
+
+8.1 Implement Agent read models
+    - GetAgentApplication
+    - GetAgentProfile
+    - Get current authenticated Agent context
+    - Qualification status
+
+8.2 Implement Admin Agent queues
+    - Paged/filterable applications
+    - Active Agents
+    - Suspended Agents
+    - Agent details
+    - Placement status
+
+8.3 Implement missing placement commands
+    - SetPreferredLeg
+    - AdminMoveUncommittedPlacement
+
+8.4 Harden manual placement
+    - Use the same serializable locking/retry protections as auto-placement.
+    - Map slot/serialization conflicts to a stable 409 error.
+    - Keep database uniqueness as final protection.
+
+8.5 Complete referral tools
+    - CreateProductReferralLink
+    - Product-specific links
+    - QR-code payload or frontend-generated QR from canonical URL
+
+8.6 Implement Agent sales reads
+    - Attributed order list
+    - Order details with privacy-safe customer information
+    - Product/commission summary
+
+8.7 Complete concurrency and functional tests
+    - ConcurrentAgentPlacementTests
+    - Agent application queue tests
+    - Agent profile/ownership tests
+    - Privacy tests for attributed orders
+
+Completion checks
+    - Admin can operate the Agent lifecycle without manually knowing IDs.
+    - Agent can view only permitted network and sales information.
+    - Concurrent placement produces one winner and one conflict.
+
+
+SUB-PHASE 9 — OUTBOX, NOTIFICATIONS, AND RELIABLE JOBS
+======================================================
+
+9.1 Define real outbox consumers
+    Recommended consumers:
+    - OrderPaidEvent -> paid-order compensation orchestration
+    - OrderItemRefundedEvent -> reversal orchestration if not already completed
+    - CommissionReleasedEvent -> notification/reporting projection
+    - PayoutRequestedEvent -> operations notification
+    - PayoutApprovedEvent -> payout processing scheduling
+    - PayoutCompleted/PayoutFailed -> notification and reporting
+    - AdministratorInvitedEvent -> invitation delivery
+
+9.2 Implement notification sender
+    - Email-backed notifications for required V1 cases.
+    - In-app notification entity/read model if included in V1.
+    - Safe retries and idempotency.
+
+9.3 Replace logging-only BackgroundJobScheduler
+    - Persist a durable job/outbox message, or remove the abstraction and use the
+      established outbox/worker mechanism consistently.
+    - Do not report a job as scheduled when only a log line was written.
+
+9.4 Implement IIdempotencyStore or remove unused abstraction
+    - Persist keys and outcomes for external/API idempotency cases.
+    - Define expiration and replay behavior.
+
+9.5 Add failure and dead-letter operations
+    - Administrator visibility into dead-lettered messages.
+    - Safe replay command with audit record.
+    - Alert after maximum attempts.
+
+9.6 Add integration tests
+    - Business state and outbox commit atomically.
+    - Two dispatchers do not duplicate a consumer side effect.
+    - Retry backoff and dead-letter behavior.
+    - ProcessedMessage prevents redelivery duplication.
+
+Completion checks
+    - Outbox dispatch produces observable business side effects.
+    - No domain event is merely marked processed without an intended consumer.
+
+
+SUB-PHASE 10 — API CONTRACT AND SECURITY COMPLETION
+===================================================
+
+10.1 Standardize API versioning
+     - Decide whether to adopt /api/v1 or formally document the tenant-first route shape.
+     - Keep endpoint names globally unique.
+
+10.2 Complete Problem Details mapping
+     Map:
+     - Domain invariant/invalid transition -> 409 or 422 as appropriate
+     - Placement conflict -> 409
+     - Database concurrency -> 409
+     - Provider timeout/unavailability -> 502/503
+     - Rate limit -> 429
+
+     Include stable error code and traceId.
+
+10.3 Add shared pagination response
+     Return:
+     - Items
+     - Page/pageSize
+     - TotalCount
+     - TotalPages or continuation token
+
+10.4 Complete authentication hardening
+     - Email verification policy
+     - Administrator MFA path or documented deployment requirement
+     - Refresh/revocation behavior
+     - Current-user endpoint returning roles, Organization, CustomerId, and AgentId
+
+10.5 Add antiforgery protection where cookie authentication can mutate state
+     - Define bearer-only versus cookie-authenticated API policy.
+     - Test CSRF behavior.
+
+10.6 Review rate limits
+     Cover:
+     - Checkout/payment sessions
+     - Actual payout request endpoint
+     - Refunds
+     - Administrator financial actions
+     - Authentication/invitations
+     - Webhooks
+
+Completion checks
+     - Frontend no longer requires manual Agent or Customer IDs.
+     - 400, 401, 403, 404, 409, 422, 429, and 500-class responses are consistent.
+     - Cookie and bearer authentication have explicit security policies.
+
+
+SUB-PHASE 11 — REPORTING, MONITORING, AND PERFORMANCE
+=====================================================
+
+11.1 Implement Reporting module/read projections
+     Admin reports:
+     - Gross/net sales
+     - Orders/refunds
+     - Sales by product/Agent
+     - Agent/network growth
+     - BV totals
+     - Commission expense/liability
+     - Wallet liability
+     - Payout history
+
+     Agent reports:
+     - Sales
+     - Attributed orders
+     - Direct recruits/downline
+     - BV
+     - Commission types/details
+     - Payout history
+
+11.2 Add actionable Admin dashboard aggregate
+     - Do not derive totals from one paged list.
+     - Include tasks requiring attention and operational alerts.
+
+11.3 Complete observability
+     Metrics:
+     - Orders/minute
+     - Payment success/failure
+     - Outbox lag
+     - Compensation lag
+     - Pairing duration/failures
+     - Payout failure rate
+     - Placement conflicts
+     - API latency
+
+11.4 Register custom OpenTelemetry sources
+     - Add MarketplaceTelemetry meter with AddMeter.
+     - Add MarketplaceTelemetry activity source with AddSource.
+
+11.5 Improve health checks
+     - Database readiness
+     - PayMongo reachability rather than configuration only
+     - SMTP/email readiness where appropriate
+     - Outbox/worker backlog thresholds
+
+11.6 Add caching with expiration/invalidation
+     Candidates:
+     - Public organization config
+     - Published catalog
+     - Category data
+     - Stable plan/config reads
+
+11.7 Add required indexes
+     Review SDD section 56, especially:
+     - Orders by Organization/customer/created date
+     - Orders by attributed Agent/created date
+     - Commission history
+     - BV ledger
+     - Wallet ledger
+     - Sponsor/downline queries
+
+11.8 Implement representative performance tests
+     - PostgreSQL-backed catalog p95
+     - Placement write
+     - Checkout server processing
+     - Audit query
+     - Refund reversal
+     - Outbox batches
+     - Large binary pairing batch
+
+Completion checks
+     - Dashboard uses backend aggregates.
+     - Custom metrics appear in the configured OTLP exporter.
+     - Performance tests measure real database workflows, not only in-memory entities.
+
+
+SUB-PHASE 12 — FRONTEND WORKFLOW COMPLETION
+===========================================
+
+Detailed implementation and migration plan:
+     - PHASE_12_FRONTEND_SUBPHASES.txt
+
+12.1 Remove manual workspace identifiers
+     - Resolve Organization from host/slug route.
+     - Resolve CustomerId and AgentId from GET /api/me.
+
+12.2 Complete Customer UI
+     - Product detail
+     - Cart
+     - Checkout
+     - Payment status
+     - Account/profile/addresses
+     - Orders/tracking
+     - Cancellation/refund
+
+12.3 Complete Agent UI
+     - Dashboard metrics
+     - Graphical tree and large-tree table
+     - Sales
+     - Qualification status
+     - Wallet ledger
+     - Payouts
+     - Product links/QR tools
+     - Profile
+
+12.4 Complete Admin UI
+     - Organization/branding/features/domain
+     - Categories/variants/inventory
+     - Orders/payments/refunds/fulfillment
+     - Agent queues/details/placement tools
+     - Compensation qualification/caps
+     - Wallet adjustments
+     - Audit trail
+     - Operational health
+     - Reports
+
+12.5 Add frontend tests
+     - Unit tests for API/error/authorization helpers
+     - Component tests for forms, tables, and dialogs
+     - Accessibility tests
+     - End-to-end tests for Customer, Agent, and Admin critical paths
+
+Completion checks
+     - No UI uses fake data or manually entered entity IDs.
+     - Every implemented mutation has loading, validation, success, and error states.
+     - Responsive and keyboard-accessible flows pass QA.
+
+
+SUB-PHASE 13 — FINAL SDD ACCEPTANCE AND RELEASE GATE
+====================================================
+
+13.1 Complete all currently empty test files
+     - Domain unit tests
+     - Application functional tests
+     - Infrastructure integration tests
+
+13.2 Repair Infrastructure.IntegrationTests project
+     - Add required project references.
+     - Add PostgreSQL test infrastructure.
+     - Ensure tests are discovered in CI.
+
+13.3 Run the SDD critical end-to-end scenario
+     1. Customer opens an Agent referral link.
+     2. Customer adds a product and checks out.
+     3. Provider confirms payment.
+     4. Direct commission and BV are generated once.
+     5. Binary pairing generates a capped/qualified commission.
+     6. Commission becomes available after policy conditions.
+     7. Agent requests payout.
+     8. Admin approves and provider completes payout.
+     9. Refund creates commission, BV, and wallet reversals.
+    10. Audit and operational records show every critical action.
+
+13.4 Run financial invariant tests
+     - No duplicate commission for source/rule/beneficiary.
+     - No BV consumption twice.
+     - Payout never exceeds available balance.
+     - Original plus full reversal equals zero.
+     - Refund allocations cannot exceed purchased quantity or paid amount.
+
+13.5 Run release validation
+     - dotnet build Release
+     - all Domain/Application/Infrastructure/Functional tests
+     - frontend typecheck and production build
+     - frontend accessibility and end-to-end tests
+     - migration from a clean PostgreSQL database
+     - migration from the previous production schema
+     - secret/configuration validation
+     - backup and restore exercise
+
+13.6 Sign off every MVP acceptance criterion
+     Record evidence for all 20 criteria in SDD section 77.
+
+Final completion condition
+--------------------------
+The project is SDD-complete only when every required workflow is implemented,
+authorized, persisted, exposed through the appropriate API/UI, observable,
+audited, migrated, and covered by executable tests.

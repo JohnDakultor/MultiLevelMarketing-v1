@@ -1,0 +1,56 @@
+html {
+  min-width: 320px;
+  color: var(--ds-text);
+  background: var(--ds-surface-muted);
+  font-family: system-ui, sans-serif;
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+.storefront-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.storefront-auth-actions__primary {
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--brand);
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-form__alternate-action {
+  margin: 0;
+  color: var(--ds-muted);
+  text-align: center;
+}
+
+.auth-confirmation-action {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--ds-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: white;
+}
+
+.auth-confirmation-action p {
+  margin: 0;
+}
+
+@media (max-width: 36rem) {
+  .storefront-auth-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+.application-container {
+  width: min(72rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0;
+}

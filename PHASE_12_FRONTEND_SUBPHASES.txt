@@ -1,0 +1,576 @@
+PHASE 12 - FRONTEND WORKFLOW COMPLETION
+========================================
+
+Objective
+---------
+Build three independently deployable, human-readable Next.js applications while
+sharing only stable platform concerns. The ASP.NET API remains the source of truth.
+
+Implementation status
+---------------------
+    - 12.0 implemented: current endpoint/capability inventory and API gaps are in
+      web/API_ANALYSIS.md.
+    - 12.1 implemented: three independently buildable Next.js applications and npm
+      workspace boundaries exist under web/apps and web/packages. The retired
+      single-app web/src implementation has been removed; new workflow work belongs
+      only to the owning application.
+    - 12.2 implemented: shared contracts, API client, authentication, Organization
+      context, design system, observability, test support, and tooling packages are
+      wired and verified.
+    - 12.3 implemented: branded responsive shells, capability-derived navigation,
+      tenant-aware Agent/Admin guards, current-customer route protection, distinct
+      unauthenticated and forbidden states, and cookie sign-in/sign-out flows are
+      wired across all three applications.
+    - Legacy removal completed: root-only Next.js runtime configuration, environment
+      files, build output, and the web/src route tree are no longer part of the
+      frontend workspace.
+    - 12.4 workflow implementation completed: catalog, referral, cart, checkout,
+      profile, address, order, cancellation, customer-refund, sign-in credential,
+      MFA, and session-management workflows are wired. Full completion still depends
+      on component/accessibility and real-stack E2E verification.
+    - 12.5 UI workflow implementation completed: the Agent dashboard, network tree,
+      downline, children, ancestors, recruits, sales/order details, product-sales
+      summary, earnings, commission list/details, BV, pairing history, wallet, payout
+      list/details/accounts, referral dashboard/link/code regeneration, qualification,
+      and profile preference are wired. Full sub-phase verification remains pending
+      real-stack E2E, and the documented backend gaps still limit server-side network
+      filtering and payout-eligibility explanations.
+    - 12.6 Step 3 workflow implementation completed: Admin order search/details,
+      payment and item refunds/reconciliation, product and variant editing, commission
+      profile discovery/assignment, inventory history, Agent details/manual placement/
+      eligible placement moves/manual pairing, payout details/account review, and
+      network settings are wired. The sub-phase remains partially verified until its
+      component/E2E/accessibility coverage and the full real-stack release gate pass.
+    - Step 4 cross-cutting implementation completed: cookie-authentication sessions
+      are recorded, listed, enforced, and revocable from all three portals; revoking
+      the current browser signs it out. Storefront identity email/password and MFA
+      endpoints are wired, and the customer endpoint parity audit has no remaining
+      unwired customer workflow. The focused PostgreSQL cookie-session test command
+      was attempted on 2026-09-20 but Aspire setup was blocked because the Docker
+      daemon was not running; no functional assertion was reported as passed.
+    - 12.7 implemented: shared and feature UI states, accessible forms,
+      duplicate-submission protection, responsive layouts, dialogs, and focus
+      behavior are wired across the applications.
+    - Step 5 / 12.8 expanded: Admin workflow component tests now cover empty,
+      forbidden, success, and tenant-scoped response states; session-management
+      tests cover confirmation, success, retryable failure, and empty results; API
+      contract tests cover placement discovery and payment refund/reconciliation.
+      Real-stack browser definitions now include Admin order refund/reconciliation,
+      manual Agent placement, and payout-account verify/reject workflows. All
+      workspace tests, accessibility/responsive browser checks, formatting, lint,
+      strict type checking, architecture checks, budgets, and production builds pass.
+      The Docker-backed PostgreSQL functional suite passes 178 tests. Authenticated
+      browser workflows remain unexecuted because the disposable E2E credentials and
+      lifecycle-specific records are not configured in the environment; they are
+      skipped rather than replaced with fake production behavior.
+    - 12.9 implemented: public catalog SSR/revalidation, private no-store rules,
+      lazy-loaded large tools, security headers, antiforgery/cookie transport,
+      correlation identifiers, privacy-filtered telemetry, browser performance
+      measurements, bundle budgets, and generated-code secret scanning.
+    - 12.10 incomplete: the retired web/src tree is removed, applications build
+      independently, and boundary/release commands exist. The Agent context endpoint
+      remains the only ordinary endpoint marked missing in the parity matrix. The
+      PostgreSQL functional gate passes, while the authenticated real-API browser gate
+      still requires provisioned disposable E2E accounts and lifecycle fixtures.
+    - Endpoint parity source of truth: web/ENDPOINT_PARITY.md (audited 2026-09-20).
+
+Applications:
+    - Storefront: anonymous visitors and authenticated customers.
+    - Agent Portal: authenticated Agents.
+    - Admin Portal: Organization Administrators.
+
+Recommended repository structure:
+
+web/
+    apps/
+        storefront/
+        agent-portal/
+        admin-portal/
+    packages/
+        api-client/
+        auth/
+        contracts/
+        design-system/
+        organization-context/
+        observability/
+        test-support/
+        tooling/
+
+Each application must remain a Next.js App Router application and must be capable of
+building, testing, configuring, and deploying independently.
+
+
+HUMAN-READABLE CODE RULES
+=========================
+
+1. Use descriptive domain names. Prefer `getCurrentAgentWallet` over `getData` and
+   `PayoutRequestForm` over `FormComponent`.
+2. Keep route files thin. A `page.tsx` composes a screen; it must not contain raw
+   HTTP calls, large validation blocks, or unrelated business rules.
+3. Keep API calls inside feature API modules. Do not call `fetch` directly from UI
+   components.
+4. Keep query keys, API functions, schemas, hooks, and visual components separate.
+5. Prefer small explicit components over one highly configurable mega-component.
+6. Do not put Customer, Agent, and Admin behavior into one component with many role
+   branches.
+7. Do not use `any`. Model request and response DTOs from the implemented backend
+   contracts.
+8. Do not duplicate API DTO definitions between applications. Shared contracts have
+   one owner in `packages/contracts`.
+9. Do not store server data in a global client store. Use server components where
+   appropriate and TanStack Query for interactive server state.
+10. Keep client components at the smallest practical boundary. Add `use client`
+    only where browser state, events, or client hooks are required.
+11. Name booleans as questions: `isSubmitting`, `canApprove`, `hasNextPage`.
+12. Extract complex conditions into named functions. JSX must describe the screen,
+    not hide business logic.
+13. Comments explain decisions or constraints, not obvious syntax.
+14. Avoid barrel files that conceal circular dependencies. A package may expose a
+    deliberate public API, but features should use direct, understandable imports.
+15. Format all TypeScript, TSX, CSS, JSON, and Markdown with the repository's pinned
+    Prettier configuration. TypeScript strict mode must remain enabled.
+16. Every mutation must expose disabled/loading, validation, success, conflict,
+    forbidden, and unexpected-error behavior.
+17. Never invent endpoints, statuses, permissions, metrics, or DTO fields. Record an
+    API GAP when the backend cannot support the required interaction.
+
+Recommended feature structure:
+
+features/<feature-name>/
+    api/
+        <operation>.ts
+        query-keys.ts
+    components/
+    hooks/
+    schemas/
+    types/
+    <FeatureName>Page.tsx
+
+
+SUB-PHASE 12.0 - REFRESH THE API CONTRACT INVENTORY
+====================================================
+
+12.0.1 Inspect every implemented Web endpoint and its Application request/response
+DTO. Do not use the old frontend analysis as the source of truth without checking it.
+
+12.0.2 Produce a current endpoint matrix containing:
+    - HTTP method and route
+    - request DTO
+    - response DTO
+    - allowed role
+    - Organization scope
+    - ownership rule
+    - pagination/filter/sort behavior
+    - cookie, bearer-token, and antiforgery requirements
+    - frontend application and screen that consumes it
+
+12.0.3 Produce a capability matrix for Anonymous, Customer, Agent, and Administrator.
+
+12.0.4 Record unsupported UI requirements using:
+
+    API GAP
+    Frontend requirement:
+    Current API limitation:
+    Recommended backend change:
+
+Completion checks:
+    - The matrix matches the current endpoint source code.
+    - No planned screen depends on an invented endpoint or response property.
+    - `web/API_ANALYSIS.md` is updated or replaced by the new inventory.
+
+
+SUB-PHASE 12.1 - CREATE THE NEXT.JS MONOREPO BOUNDARIES
+=======================================================
+
+12.1.1 Convert `web` into a workspace containing the three Next.js applications and
+shared packages shown above.
+
+12.1.2 Keep the existing frontend operational while features are moved incrementally.
+Do not delete the current `web/src` application until all required routes have owners
+and parity tests pass.
+
+12.1.3 Give each application its own:
+    - `src/app` route tree and layouts
+    - environment validation
+    - Next.js configuration
+    - package manifest and scripts
+    - middleware/proxy behavior where required
+    - error, loading, not-found, and access-denied boundaries
+    - independent production build
+
+12.1.4 Define repository-level commands for:
+    - development per application
+    - formatting
+    - linting
+    - type checking
+    - unit/component tests
+    - end-to-end tests
+    - production builds
+
+12.1.5 Use one lockfile and pinned dependency versions. Do not let the three apps
+silently drift to different React, Next.js, TypeScript, or TanStack Query versions.
+
+Completion checks:
+    - All three applications start and build independently.
+    - Shared packages cannot import from an application.
+    - Applications consume packages through declared package boundaries.
+    - Existing user flows remain available during the migration.
+
+
+SUB-PHASE 12.2 - IMPLEMENT SHARED PLATFORM PACKAGES
+====================================================
+
+12.2.1 `contracts`
+    - Model implemented backend DTOs, enums, pagination, and Problem Details.
+    - Preserve backend nullability and enum representation.
+    - Do not create frontend-only fields inside API DTOs.
+
+12.2.2 `api-client`
+    - Configure the API base URL in one place.
+    - Support request serialization, response parsing, cancellation, and timeouts.
+    - Include credentials when the selected authentication transport requires them.
+    - Acquire and send antiforgery tokens for cookie-authenticated mutations.
+    - Normalize 400, 401, 403, 404, 409, 422, 429, timeout, network, and 500 errors.
+    - Preserve validation error details without exposing stack traces.
+
+12.2.3 `auth`
+    - Load the current identity from the implemented current-user endpoint.
+    - Model authentication separately from authorization.
+    - Distinguish 401 session expiration from 403 insufficient permission.
+    - Provide role/capability guards for routes and actions.
+    - Logout/revoke the current session through the backend contract.
+
+12.2.4 `organization-context`
+    - Resolve Organization from the request hostname or supported slug route.
+    - Load persisted public branding and locale configuration.
+    - Never require ordinary users to enter OrganizationId, CustomerId, or AgentId.
+    - Prevent cached Organization data from leaking between hosts.
+
+12.2.5 `design-system`
+    - Implement accessible typography, spacing, color, focus, status, and elevation
+      tokens.
+    - Implement reusable Button, Input, Textarea, Select, Checkbox, RadioGroup,
+      Dialog, Drawer, Dropdown, Tabs, Badge, Alert, Toast, Skeleton, Breadcrumb,
+      Pagination, DataTable, EmptyState, ErrorState, and ConfirmationDialog.
+    - Keep business workflows out of the design-system package.
+
+12.2.6 `observability`
+    - Generate or propagate a correlation identifier where supported.
+    - Record route performance and normalized client failures without recording
+      credentials, tokens, addresses, or other sensitive payloads.
+
+Completion checks:
+    - No application duplicates transport, current-user, Organization resolution, or
+      primitive UI logic.
+    - Shared packages contain no Agent/Admin/Customer workflow components.
+    - Package APIs are documented through names and types rather than excessive
+      comments.
+
+
+SUB-PHASE 12.3 - APPLICATION SHELLS AND ROUTE AUTHORIZATION
+===========================================================
+
+12.3.1 Storefront shell
+    - Public organization branding
+    - Catalog navigation, cart access, account access, and mobile navigation
+    - Customer account navigation only when authenticated
+
+12.3.2 Agent shell
+    - Agent-focused navigation and responsive workspace layout
+    - Route guard requiring an authenticated Agent identity
+    - No Administrator-only actions
+
+12.3.3 Admin shell
+    - Organization administration navigation
+    - Route guard requiring permission to administer the resolved Organization
+    - Clear organization context without editable raw Organization identifiers
+
+12.3.4 Wrong-portal behavior
+    - Unauthenticated users enter the supported sign-in flow.
+    - Authenticated users without permission receive an access-denied state.
+    - Do not treat a 403 as a logged-out session.
+
+Completion checks:
+    - Navigation is generated from explicit role capabilities.
+    - Hidden UI never replaces backend authorization.
+    - Keyboard and mobile navigation work in all three shells.
+
+
+SUB-PHASE 12.4 - COMPLETE THE STOREFRONT AND CUSTOMER FLOWS
+===========================================================
+
+12.4.1 Public storefront
+    - Home/catalog
+    - Search and API-supported filters
+    - Category browsing
+    - Product details and purchasable variants
+    - Agent personal storefront/referral routes
+    - Referral attribution using the backend cookie contract
+
+12.4.2 Cart
+    - Anonymous cart
+    - Add, update, and remove items
+    - Availability and changed-price handling
+    - Anonymous cart merge after authentication
+    - Empty, loading, retry, and conflict states
+
+12.4.3 Checkout and payment
+    - Address selection/creation using the real request DTO
+    - Server-authoritative price, BV, currency, stock, and attribution display
+    - Duplicate-submission prevention
+    - PayMongo redirect/session flow
+    - Return, cancelled, pending, succeeded, and failed payment states supported by
+      the backend
+
+12.4.4 Customer account
+    - Current profile read/update
+    - Address list/add/update/remove
+    - Order history with backend pagination
+    - Order details, fulfillment, and tracking state
+    - Authorized cancellation and item-refund requests
+
+Completion checks:
+    - No customer or cart identifier is manually entered.
+    - Prices and eligibility are never calculated as authoritative client values.
+    - Refreshing payment return pages is safe.
+    - All customer routes work on mobile and by keyboard.
+
+
+SUB-PHASE 12.5 - COMPLETE THE AGENT PORTAL
+===========================================
+
+12.5.1 Dashboard
+    - Use the backend Agent report/dashboard aggregates where available.
+    - Show actionable wallet, commission, sales, BV, recruitment, qualification, and
+      payout information without deriving totals from one paged list.
+
+12.5.2 Network
+    - Graphical binary tree with expandable nodes
+    - Search and API-supported depth/leg/status filters
+    - Large-network table alternative
+    - Direct recruits, children, ancestors, downline, and leg summary
+    - Loading-per-branch rather than blocking the entire tree
+
+12.5.3 Sales and compensation
+    - Attributed orders and privacy-safe details
+    - Earnings summary and commission history/details
+    - Binary volume and pairing history
+    - Qualification state with understandable failure reasons
+
+12.5.4 Wallet and payouts
+    - Wallet balances and immutable ledger
+    - Payout account management
+    - Eligibility explanation
+    - Request, history, details, and allowed cancellation
+
+12.5.5 Referral tools
+    - General and product-specific referral links
+    - Copy feedback
+    - QR code generated from the canonical backend-supported link
+    - Never fabricate or shorten links without a backend contract
+
+12.5.6 Agent profile
+    - Current Agent identity and supported editable fields only
+
+Completion checks:
+    - AgentId comes from current identity, never a text field or URL chosen by the
+      Agent.
+    - An Agent cannot navigate to or render another Agent's private resources.
+    - Large networks remain usable through the table view.
+
+
+SUB-PHASE 12.6 - COMPLETE THE ADMIN PORTAL
+===========================================
+
+12.6.1 Dashboard and reports
+    - Actionable backend dashboard aggregates
+    - Date-ranged administrator reports
+    - Sales, products, Agents, BV, commissions, wallet liability, and payouts
+    - Do not invent chart granularity not returned by the API
+
+12.6.2 Organization administration
+    - Organization profile
+    - Branding assets and preview
+    - Features, currency, locale, and time zone
+    - Domain configuration and verification state
+    - Commerce, network, referral, and wallet settings supported by APIs
+
+12.6.3 Catalog and inventory
+    - Categories
+    - Products and publication lifecycle
+    - Variants
+    - Inventory balances, adjustments, and concurrency-conflict recovery
+    - Commission profiles
+
+12.6.4 Orders and money operations
+    - Orders, payments, fulfillment, refunds, and reconciliation
+    - Payout review, approval, rejection, submission, and reconciliation
+    - Strong confirmation for irreversible or financially significant actions
+    - Idempotency keys for supported financial mutations
+
+12.6.5 Agent operations
+    - Applications and approval/rejection
+    - Active/suspended Agent management
+    - Placement tree and explicit placement tools
+    - Compensation plans, qualification rules, and caps
+    - Wallet adjustments with reason and confirmation
+
+12.6.6 Administration and operations
+    - Administrator list and invitation lifecycle
+    - Audit trail
+    - Operational health
+    - Failed/background processing visibility exposed by implemented endpoints
+
+Completion checks:
+    - Every mutation verifies the current Organization context.
+    - Financial and lifecycle actions identify the affected record in confirmation
+      copy.
+    - Tables use backend-supported pagination, filtering, and sorting only.
+    - Administrator actions are not rendered for unauthorized users.
+
+
+SUB-PHASE 12.7 - COMPLETE UI STATES, FORMS, AND ACCESSIBILITY
+=============================================================
+
+12.7.1 Every data screen must implement:
+    - meaningful skeleton/loading state
+    - zero-data state explaining the next valid action
+    - normalized error state and retry when safe
+    - permission-denied state
+    - responsive layout
+
+12.7.2 Every form must implement:
+    - labels, descriptions, required markers, and backend-compatible defaults
+    - client validation that mirrors, but never replaces, backend validation
+    - field-level mapping of validation Problem Details
+    - disabled and progress states during submission
+    - prevention of accidental duplicate submission
+    - clear success behavior and focus management
+
+12.7.3 Accessibility target: WCAG 2.2 AA where reasonable.
+    - semantic landmarks and headings
+    - visible focus
+    - full keyboard operation
+    - correctly labelled controls
+    - accessible dialogs and menus
+    - live regions for asynchronous feedback
+    - status meaning that does not rely on color alone
+
+Completion checks:
+    - Core workflows pass keyboard-only review.
+    - Automated accessibility checks have no serious or critical findings.
+    - Mobile layouts do not require horizontal page scrolling.
+
+
+SUB-PHASE 12.8 - FRONTEND TEST COVERAGE
+========================================
+
+12.8.1 Unit tests
+    - API error normalization
+    - query-key construction
+    - role/capability decisions
+    - Organization host resolution
+    - date, money, and status formatting
+
+12.8.2 Component tests
+    - forms and backend validation errors
+    - paginated tables
+    - confirmation dialogs
+    - loading, empty, forbidden, conflict, and failure states
+    - accessible navigation and focus behavior
+
+12.8.3 Contract tests
+    - Frontend DTO fixtures deserialize current backend responses.
+    - API method, route, payload, and enum assumptions match implemented endpoints.
+
+12.8.4 End-to-end tests
+    Customer:
+        browse -> referral attribution -> cart -> sign in -> checkout -> payment
+        return -> order details -> cancellation/refund request
+    Agent:
+        sign in -> dashboard -> network -> referral link -> wallet -> payout request
+    Administrator:
+        sign in -> product/variant/inventory -> Agent approval/placement -> refund or
+        payout review -> reports -> audit trail
+
+12.8.5 Test negative authorization paths:
+    - Customer cannot open Agent/Admin applications.
+    - Agent cannot open Admin routes or another Agent's resources.
+    - Administrator cannot operate on another Organization.
+    - 401 and 403 produce different behavior.
+
+Completion checks:
+    - Tests do not depend on fake production behavior.
+    - Critical end-to-end tests run against the real API and PostgreSQL test stack.
+    - Each application can run its tests independently.
+
+
+SUB-PHASE 12.9 - PERFORMANCE, SECURITY, AND OBSERVABILITY
+=========================================================
+
+12.9.1 Performance
+    - Use server rendering for public catalog content where compatible with tenant
+      resolution and personalization.
+    - Use deliberate cache/revalidation rules; never cache private user data across
+      sessions or Organizations.
+    - Lazy-load large visualizations and non-critical Admin tools.
+    - Measure route loading, interaction latency, bundle size, and Core Web Vitals.
+
+12.9.2 Security
+    - Keep provider secrets and backend credentials out of browser bundles.
+    - Do not persist bearer tokens in localStorage when secure cookie transport is
+      selected.
+    - Use the backend antiforgery contract for cookie-authenticated mutations.
+    - Do not log tokens, payment data, addresses, or private customer information.
+    - Treat frontend guards as UX only; backend policies remain authoritative.
+
+12.9.3 Observability
+    - Record application, route, release, and correlation context.
+    - Capture normalized failures and performance without sensitive request bodies.
+    - Provide useful production error boundaries rather than exposing raw exceptions.
+
+Completion checks:
+    - No secret is present in generated client JavaScript.
+    - Private responses are not shared through server or CDN caches.
+    - Performance budgets are measured in production builds.
+
+
+SUB-PHASE 12.10 - MIGRATION AND RELEASE GATE
+=============================================
+
+12.10.1 Move existing screens feature-by-feature into the owning application.
+Recommended order:
+    1. Shared packages and identity/Organization bootstrap
+    2. Storefront public catalog
+    3. Customer account/cart/checkout/orders
+    4. Agent portal
+    5. Admin portal
+
+12.10.2 For each moved feature:
+    - verify endpoint contract
+    - move/refactor readable feature modules
+    - add missing states and tests
+    - verify responsive/accessibility behavior
+    - switch the route to its new owner
+    - remove the old implementation only after parity is proven
+
+12.10.3 Suggested production domains:
+    - Storefront: `https://<organization-domain>`
+    - Agent Portal: `https://agents.<platform-domain>`
+    - Admin Portal: `https://admin.<platform-domain>`
+    - Backend API: `https://api.<platform-domain>`
+
+The exact domain topology remains deployment configuration. It must not be hardcoded
+inside application components.
+
+Final completion checks:
+    - Storefront, Agent Portal, and Admin Portal build and deploy independently.
+    - No production route remains in the legacy single-app source tree.
+    - No screen uses fake data or manually entered OrganizationId, CustomerId, or
+      AgentId.
+    - Every mutation has loading, validation, success, conflict, and failure states.
+    - Current-user and Organization context are resolved by the backend contracts.
+    - All applications pass formatting, lint, strict type checking, tests,
+      accessibility checks, and production builds.
+    - Customer, Agent, and Administrator critical paths pass against the real API and
+      PostgreSQL stack.

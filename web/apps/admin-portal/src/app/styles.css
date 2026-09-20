@@ -1,0 +1,39 @@
+html {
+  min-width: 320px;
+  color: var(--ds-text);
+  background: var(--ds-surface-muted);
+  font-family: system-ui, sans-serif;
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+.application-container {
+  width: min(90rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.platform-onboarding {
+  max-width: 64rem;
+  margin: 0 auto;
+}
+
+.platform-onboarding .ds-card > h2 {
+  margin-top: 0;
+}
+
+.platform-onboarding__actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.platform-onboarding__actions p {
+  margin: 0;
+  color: var(--ds-text-muted);
+}
+
+.platform-onboarding__success code {
+  overflow-wrap: anywhere;
+}

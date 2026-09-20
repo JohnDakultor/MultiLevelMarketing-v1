@@ -1,0 +1,33 @@
+{
+  "name": "@modular-mlm/storefront",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build && node ../../scripts/prepare-standalone.mjs storefront",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "tsx --test src/**/*.test.ts",
+    "test:e2e": "playwright test --config ../../playwright.config.ts --project storefront"
+  },
+  "dependencies": {
+    "@modular-mlm/api-client": "*",
+    "@modular-mlm/auth": "*",
+    "@modular-mlm/contracts": "*",
+    "@modular-mlm/design-system": "*",
+    "@modular-mlm/observability": "*",
+    "@modular-mlm/notifications": "*",
+    "@modular-mlm/organization-context": "*",
+    "@modular-mlm/tooling": "*",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.2"
+  }
+}

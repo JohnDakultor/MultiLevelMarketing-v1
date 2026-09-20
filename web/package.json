@@ -1,0 +1,50 @@
+{
+  "name": "modular-mlm-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:storefront": "npm run dev --workspace @modular-mlm/storefront",
+    "dev:agent": "npm run dev --workspace @modular-mlm/agent-portal",
+    "dev:admin": "npm run dev --workspace @modular-mlm/admin-portal",
+    "build": "npm run build:apps",
+    "build:storefront": "npm run build --workspace @modular-mlm/storefront",
+    "build:agent": "npm run build --workspace @modular-mlm/agent-portal",
+    "build:admin": "npm run build --workspace @modular-mlm/admin-portal",
+    "build:apps": "npm run build:storefront && npm run build:agent && npm run build:admin",
+    "start:storefront": "npm run start --workspace @modular-mlm/storefront",
+    "start:agent": "npm run start --workspace @modular-mlm/agent-portal",
+    "start:admin": "npm run start --workspace @modular-mlm/admin-portal",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css,json,md}\" \"packages/**/*.{ts,tsx,css,json,md}\" \"e2e/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"playwright.config.ts\" \"*.{json,md,js,mjs}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json,md}\" \"packages/**/*.{ts,tsx,css,json,md}\" \"e2e/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" \"playwright.config.ts\" \"*.{json,md,js,mjs}\"",
+    "lint": "eslint apps packages e2e playwright.config.ts --max-warnings=0",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:all": "npm run typecheck",
+    "test:workspaces": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run build:apps && playwright test",
+    "test:e2e:real": "playwright test e2e/customer-critical-path.spec.ts e2e/agent-critical-path.spec.ts e2e/admin-critical-path.spec.ts e2e/authorization-negative-paths.spec.ts",
+    "test:a11y": "npm run build:apps && playwright test e2e/accessibility.spec.ts",
+    "check:budgets": "node scripts/check-build-budgets.mjs",
+    "check:architecture": "node scripts/check-frontend-architecture.mjs",
+    "release:check": "npm run format:check && npm run lint && npm run typecheck && npm run test:workspaces && npm run check:architecture && npm run build:apps && npm run check:budgets"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.55.1",
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "16.3.3",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}
