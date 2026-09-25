@@ -105,7 +105,7 @@ jobs:
       - name: Run EF Core migration job
         shell: bash
         run: |
-          job_name="$(az resource list --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$AZURE_RESOURCE_GROUP" --resource-type Microsoft.App/jobs --tag aspire-resource-name=database-migrator --query '[0].name' --output tsv)"
+          job_name="$(az containerapp job list --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$AZURE_RESOURCE_GROUP" --query "[?tags.\"aspire-resource-name\"=='database-migrator'].name | [0]" --output tsv)"
           if [[ -z "$job_name" ]]; then
             echo 'The database-migrator Container Apps job was not found.' >&2
             exit 1
