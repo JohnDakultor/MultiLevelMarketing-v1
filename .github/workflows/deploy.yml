@@ -23,7 +23,7 @@ concurrency:
 env:
   DOTNET_VERSION: 10.0.x
   NODE_VERSION: 22.13.x
-  ASPIRE_CLI_VERSION: 13.2.0
+  ASPIRE_CLI_VERSION: 13.5.4
   DEPLOYMENT_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'uat' }}
 
 jobs:

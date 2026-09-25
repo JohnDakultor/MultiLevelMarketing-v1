@@ -1,10 +1,11 @@
-﻿<Project Sdk="Aspire.AppHost.Sdk/13.2.0">
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.5.4">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>modular_mlm.AppHost</RootNamespace>
     <AssemblyName>modular_mlm.AppHost</AssemblyName>
     <UserSecretsId>modular_mlm.AppHost-5f703294-0385-4d7e-a497-a6b602413654</UserSecretsId>
-    <NoWarn>$(NoWarn);ASPIREAZURE002</NoWarn>
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <NoWarn>$(NoWarn);ASPIRE010;ASPIREAZURE002</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

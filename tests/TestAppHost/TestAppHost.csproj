@@ -1,8 +1,10 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.2.0">
+<Project Sdk="Aspire.AppHost.Sdk/13.5.4">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>modular_mlm.TestAppHost</RootNamespace>
     <AssemblyName>modular_mlm.TestAppHost</AssemblyName>
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
