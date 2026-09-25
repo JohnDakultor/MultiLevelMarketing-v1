@@ -105,19 +105,85 @@ jobs:
       - name: Run EF Core migration job
         shell: bash
         run: |
-          job_name="$(az containerapp job list --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$AZURE_RESOURCE_GROUP" --query "[?tags.\"aspire-resource-name\"=='database-migrator'].name | [0]" --output tsv)"
+          set -euo pipefail
+
+          echo "Container Apps jobs deployed in resource group:"
+          az containerapp job list \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "[].{Name:name,Tags:tags,State:properties.provisioningState}" \
+            --output table
+
+          job_name="$(
+            az containerapp job list \
+              --subscription "$AZURE_SUBSCRIPTION_ID" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[?contains(name, 'database-migrator')].name | [0]" \
+              --output tsv
+          )"
+
           if [[ -z "$job_name" ]]; then
-            echo 'The database-migrator Container Apps job was not found.' >&2
+            echo "ERROR: database-migrator Container Apps Job was not found." >&2
+            echo "Available jobs:" >&2
+
+            az containerapp job list \
+              --subscription "$AZURE_SUBSCRIPTION_ID" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[].name" \
+              --output tsv >&2
+
             exit 1
           fi
-          execution="$(az containerapp job start --subscription "$AZURE_SUBSCRIPTION_ID" --name "$job_name" --resource-group "$AZURE_RESOURCE_GROUP" --query name --output tsv)"
+
+          echo "Found migration job: $job_name"
+
+          execution="$(
+            az containerapp job start \
+              --subscription "$AZURE_SUBSCRIPTION_ID" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "$job_name" \
+              --query name \
+              --output tsv
+          )"
+
+          echo "Started migration execution: $execution"
+
           for attempt in {1..60}; do
-            status="$(az containerapp job execution show --subscription "$AZURE_SUBSCRIPTION_ID" --name "$job_name" --job-execution-name "$execution" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.status --output tsv)"
+            status="$(
+              az containerapp job execution show \
+                --subscription "$AZURE_SUBSCRIPTION_ID" \
+                --resource-group "$AZURE_RESOURCE_GROUP" \
+                --name "$job_name" \
+                --job-execution-name "$execution" \
+                --query properties.status \
+                --output tsv
+            )"
+
+            echo "Migration status: $status"
+
             case "$status" in
-              Succeeded) exit 0 ;;
-              Failed|Stopped|Degraded) echo "Migration execution failed with status: $status" >&2; exit 1 ;;
+              Succeeded)
+                echo "Database migration completed successfully."
+                exit 0
+                ;;
+
+              Failed|Stopped|Degraded)
+                echo "Migration failed with status: $status" >&2
+
+                echo "Execution details:"
+                az containerapp job execution show \
+                  --subscription "$AZURE_SUBSCRIPTION_ID" \
+                  --resource-group "$AZURE_RESOURCE_GROUP" \
+                  --name "$job_name" \
+                  --job-execution-name "$execution" \
+                  --output json
+
+                exit 1
+                ;;
             esac
+
             sleep 10
           done
-          echo 'Migration execution did not finish within 10 minutes.' >&2
+
+          echo "Migration did not complete within 10 minutes." >&2
           exit 1
