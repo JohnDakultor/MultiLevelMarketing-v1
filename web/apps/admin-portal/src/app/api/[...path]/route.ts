@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-async function handle(request: Request, context: RouteContext): Promise<Response> {
+async function handle(
+  request: Request,
+  context: RouteContext,
+): Promise<Response> {
   const { path } = await context.params;
   return proxyBackendRequest(request, path);
 }

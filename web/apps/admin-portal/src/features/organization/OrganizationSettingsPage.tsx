@@ -497,35 +497,66 @@ function ReferralSettingsCard() {
   const scope = useAdminScope();
   const feedback = useFormSubmission();
   const settings = useApiQuery(
-    (client, signal) => adminApi.referralSettings(client, scope.organizationId, signal),
+    (client, signal) =>
+      adminApi.referralSettings(client, scope.organizationId, signal),
     [scope.organizationId],
     scope.isReady,
   );
   if (settings.isLoading) return <Loading />;
-  if (settings.error) return <Failure error={settings.error} retry={settings.reload} />;
+  if (settings.error)
+    return <Failure error={settings.error} retry={settings.reload} />;
   if (!settings.data) return null;
   return (
     <Card>
       <h2>Referral settings</h2>
-      <form className="form-grid" onSubmit={async (event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        const saved = await feedback.submit(() => adminApi.updateReferralSettings(
-          api,
-          scope.organizationId,
-          {
-            attributionWindowDays: Number(data.get("attributionWindowDays")),
-            allowReferralOverride: data.get("allowReferralOverride") === "on",
-            referralLockAfterFirstPurchase: data.get("referralLockAfterFirstPurchase") === "on",
-          },
-        ), "Referral settings saved.");
-        if (saved) settings.reload();
-      }}>
-        <FormErrorSummary errors={feedback.fieldErrors} generalErrors={feedback.formErrors} id={feedback.errorSummaryId} />
-        <InputField name="attributionWindowDays" label="Attribution window (days)" type="number" min={1} max={365} defaultValue={settings.data.attributionWindowDays} required />
-        <Checkbox name="allowReferralOverride" label="Allow referral override" defaultChecked={settings.data.allowReferralOverride} />
-        <Checkbox name="referralLockAfterFirstPurchase" label="Lock referral after first purchase" defaultChecked={settings.data.referralLockAfterFirstPurchase} />
-        <Button type="submit" isLoading={feedback.isSubmitting}>Save referral settings</Button>
+      <form
+        className="form-grid"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          const saved = await feedback.submit(
+            () =>
+              adminApi.updateReferralSettings(api, scope.organizationId, {
+                attributionWindowDays: Number(
+                  data.get("attributionWindowDays"),
+                ),
+                allowReferralOverride:
+                  data.get("allowReferralOverride") === "on",
+                referralLockAfterFirstPurchase:
+                  data.get("referralLockAfterFirstPurchase") === "on",
+              }),
+            "Referral settings saved.",
+          );
+          if (saved) settings.reload();
+        }}
+      >
+        <FormErrorSummary
+          errors={feedback.fieldErrors}
+          generalErrors={feedback.formErrors}
+          id={feedback.errorSummaryId}
+        />
+        <InputField
+          name="attributionWindowDays"
+          label="Attribution window (days)"
+          type="number"
+          min={1}
+          max={365}
+          defaultValue={settings.data.attributionWindowDays}
+          required
+        />
+        <Checkbox
+          name="allowReferralOverride"
+          label="Allow referral override"
+          defaultChecked={settings.data.allowReferralOverride}
+        />
+        <Checkbox
+          name="referralLockAfterFirstPurchase"
+          label="Lock referral after first purchase"
+          defaultChecked={settings.data.referralLockAfterFirstPurchase}
+        />
+        <Button type="submit" isLoading={feedback.isSubmitting}>
+          Save referral settings
+        </Button>
       </form>
     </Card>
   );

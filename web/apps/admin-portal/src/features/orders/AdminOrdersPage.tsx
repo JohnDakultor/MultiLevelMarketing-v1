@@ -296,42 +296,115 @@ function OrderDetails({
       />
       <div className="button-cluster" aria-label="Order fulfillment actions">
         {data.status === 1 && (
-          <Button onClick={() => void run(
-            () => adminApi.startOrderProcessing(api, scope.organizationId, data.id),
-            { title: "Start processing?", description: `Start fulfillment for ${data.orderNumber}?`, label: "Start processing" },
-            "Order processing started.",
-          )}>Start processing</Button>
+          <Button
+            onClick={() =>
+              void run(
+                () =>
+                  adminApi.startOrderProcessing(
+                    api,
+                    scope.organizationId,
+                    data.id,
+                  ),
+                {
+                  title: "Start processing?",
+                  description: `Start fulfillment for ${data.orderNumber}?`,
+                  label: "Start processing",
+                },
+                "Order processing started.",
+              )
+            }
+          >
+            Start processing
+          </Button>
         )}
         {data.status === 2 && (
-          <Button onClick={async () => {
-            const carrier = await prompt({ title: "Ship order", description: "Enter the shipping carrier.", label: "Carrier", submitLabel: "Continue", maxLength: 100 });
-            if (!carrier) return;
-            const tracking = await prompt({ title: "Tracking number", description: "Enter the carrier tracking number.", label: "Tracking number", submitLabel: "Mark shipped", maxLength: 200 });
-            if (!tracking) return;
-            await run(
-              () => adminApi.shipOrder(api, scope.organizationId, data.id, carrier, tracking),
-              { title: "Mark shipped?", description: `Ship ${data.orderNumber} with ${carrier}?`, label: "Mark shipped" },
-              "Order marked shipped.",
-            );
-          }}>Mark shipped</Button>
+          <Button
+            onClick={async () => {
+              const carrier = await prompt({
+                title: "Ship order",
+                description: "Enter the shipping carrier.",
+                label: "Carrier",
+                submitLabel: "Continue",
+                maxLength: 100,
+              });
+              if (!carrier) return;
+              const tracking = await prompt({
+                title: "Tracking number",
+                description: "Enter the carrier tracking number.",
+                label: "Tracking number",
+                submitLabel: "Mark shipped",
+                maxLength: 200,
+              });
+              if (!tracking) return;
+              await run(
+                () =>
+                  adminApi.shipOrder(
+                    api,
+                    scope.organizationId,
+                    data.id,
+                    carrier,
+                    tracking,
+                  ),
+                {
+                  title: "Mark shipped?",
+                  description: `Ship ${data.orderNumber} with ${carrier}?`,
+                  label: "Mark shipped",
+                },
+                "Order marked shipped.",
+              );
+            }}
+          >
+            Mark shipped
+          </Button>
         )}
         {data.status === 3 && (
-          <Button onClick={() => void run(
-            () => adminApi.deliverOrder(api, scope.organizationId, data.id),
-            { title: "Mark delivered?", description: `Confirm delivery of ${data.orderNumber}?`, label: "Mark delivered" },
-            "Order marked delivered.",
-          )}>Mark delivered</Button>
+          <Button
+            onClick={() =>
+              void run(
+                () => adminApi.deliverOrder(api, scope.organizationId, data.id),
+                {
+                  title: "Mark delivered?",
+                  description: `Confirm delivery of ${data.orderNumber}?`,
+                  label: "Mark delivered",
+                },
+                "Order marked delivered.",
+              )
+            }
+          >
+            Mark delivered
+          </Button>
         )}
         {data.status === 0 && (
-          <Button variant="danger" onClick={async () => {
-            const reason = await prompt({ title: "Cancel order", description: `Cancel unpaid order ${data.orderNumber}?`, label: "Reason", submitLabel: "Cancel order", maxLength: 500 });
-            if (!reason) return;
-            await run(
-              () => adminApi.cancelOrder(api, scope.organizationId, data.id, reason),
-              { title: "Cancel order?", description: "Inventory reservations will be released.", label: "Cancel order" },
-              "Order cancelled.",
-            );
-          }}>Cancel order</Button>
+          <Button
+            variant="danger"
+            onClick={async () => {
+              const reason = await prompt({
+                title: "Cancel order",
+                description: `Cancel unpaid order ${data.orderNumber}?`,
+                label: "Reason",
+                submitLabel: "Cancel order",
+                maxLength: 500,
+              });
+              if (!reason) return;
+              await run(
+                () =>
+                  adminApi.cancelOrder(
+                    api,
+                    scope.organizationId,
+                    data.id,
+                    reason,
+                  ),
+                {
+                  title: "Cancel order?",
+                  description: "Inventory reservations will be released.",
+                  label: "Cancel order",
+                },
+                "Order cancelled.",
+              );
+            }}
+          >
+            Cancel order
+          </Button>
         )}
       </div>
       <h3>Items</h3>

@@ -69,12 +69,18 @@ test("every API operation and antiforgery lookup requests API version 1.0", asyn
     fetchImplementation: async (input, init) => {
       headers.push(new Headers(init?.headers));
       if (String(input).endsWith("/api/security/antiforgery-token"))
-        return Response.json({ headerName: "X-XSRF-TOKEN", requestToken: "token" });
+        return Response.json({
+          headerName: "X-XSRF-TOKEN",
+          requestToken: "token",
+        });
       return new Response(null, { status: 204 });
     },
   });
 
   await client.request<void>("/api/example", { method: "POST", body: {} });
 
-  assert.deepEqual(headers.map((value) => value.get("Api-Version")), ["1.0", "1.0"]);
+  assert.deepEqual(
+    headers.map((value) => value.get("Api-Version")),
+    ["1.0", "1.0"],
+  );
 });

@@ -199,16 +199,20 @@ export const adminApi = {
       page: number;
       pageSize: number;
       totalCount: number;
-    }>(
-      `${admin(id)}/categories?includeInactive=true&page=1&pageSize=100`,
-      { signal },
-    ),
+    }>(`${admin(id)}/categories?includeInactive=true&page=1&pageSize=100`, {
+      signal,
+    }),
   createCategory: (api: ApiClient, id: string, name: string, slug: string) =>
     api.request<string>(`${admin(id)}/categories`, {
       method: "POST",
       body: { name, slug },
     }),
-  renameCategory: (api: ApiClient, id: string, categoryId: string, name: string) =>
+  renameCategory: (
+    api: ApiClient,
+    id: string,
+    categoryId: string,
+    name: string,
+  ) =>
     api.request<void>(`${admin(id)}/categories/${categoryId}`, {
       method: "PUT",
       body: { name },
@@ -218,7 +222,10 @@ export const adminApi = {
     id: string,
     categoryId: string,
     action: "archive" | "activate",
-  ) => api.request<void>(`${admin(id)}/categories/${categoryId}/${action}`, { method: "POST" }),
+  ) =>
+    api.request<void>(`${admin(id)}/categories/${categoryId}/${action}`, {
+      method: "POST",
+    }),
   createProduct: (api: ApiClient, id: string, body: object) =>
     api.request<string>(`${org(id)}/products`, { method: "POST", body }),
   publishProduct: (api: ApiClient, id: string, productId: string) =>
@@ -563,12 +570,15 @@ export const adminApi = {
       { signal },
     ),
   referralSettings: (api: ApiClient, id: string, signal?: AbortSignal) =>
-    api.request<ReferralSettingsDto>(`${org(id)}/referral-settings`, { signal }),
+    api.request<ReferralSettingsDto>(`${org(id)}/referral-settings`, {
+      signal,
+    }),
   updateReferralSettings: (
     api: ApiClient,
     id: string,
     body: ReferralSettingsDto,
-  ) => api.request<void>(`${org(id)}/referral-settings`, { method: "PUT", body }),
+  ) =>
+    api.request<void>(`${org(id)}/referral-settings`, { method: "PUT", body }),
   audit: (api: ApiClient, id: string, signal?: AbortSignal) =>
     api.request<AuditLogDto[]>(`${admin(id)}/audit-trail?page=1&pageSize=50`, {
       signal,

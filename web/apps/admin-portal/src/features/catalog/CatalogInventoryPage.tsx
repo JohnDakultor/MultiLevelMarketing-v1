@@ -277,7 +277,8 @@ function CategoryAdministration() {
   const feedback = useFormSubmission();
   const { confirm, prompt } = useConfirmation();
   const categories = useApiQuery(
-    (client, signal) => adminApi.categories(client, scope.organizationId, signal),
+    (client, signal) =>
+      adminApi.categories(client, scope.organizationId, signal),
     [scope.organizationId],
     scope.isReady,
   );
@@ -291,12 +292,13 @@ function CategoryAdministration() {
           const form = event.currentTarget;
           const data = new FormData(form);
           const saved = await feedback.submit(
-            () => adminApi.createCategory(
-              api,
-              scope.organizationId,
-              String(data.get("name")),
-              String(data.get("slug")),
-            ),
+            () =>
+              adminApi.createCategory(
+                api,
+                scope.organizationId,
+                String(data.get("name")),
+                String(data.get("slug")),
+              ),
             "Category created.",
           );
           if (saved) {
@@ -305,12 +307,25 @@ function CategoryAdministration() {
           }
         }}
       >
-        <FormErrorSummary errors={feedback.fieldErrors} generalErrors={feedback.formErrors} id={feedback.errorSummaryId} />
+        <FormErrorSummary
+          errors={feedback.fieldErrors}
+          generalErrors={feedback.formErrors}
+          id={feedback.errorSummaryId}
+        />
         <InputField name="name" label="Category name" required />
-        <InputField name="slug" label="Slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required />
-        <Button type="submit" isLoading={feedback.isSubmitting}>Create category</Button>
+        <InputField
+          name="slug"
+          label="Slug"
+          pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+          required
+        />
+        <Button type="submit" isLoading={feedback.isSubmitting}>
+          Create category
+        </Button>
       </form>
-      {categories.error ? <Failure error={categories.error} retry={categories.reload} /> : (
+      {categories.error ? (
+        <Failure error={categories.error} retry={categories.reload} />
+      ) : (
         <DataTable
           caption="Category administration"
           rows={categories.data?.items ?? []}
@@ -318,24 +333,69 @@ function CategoryAdministration() {
           columns={[
             { key: "name", header: "Name", cell: (row) => row.name },
             { key: "slug", header: "Slug", cell: (row) => row.slug },
-            { key: "products", header: "Products", cell: (row) => row.productCount },
-            { key: "status", header: "Status", cell: (row) => row.isActive ? "Active" : "Archived" },
-            { key: "actions", header: "", cell: (row) => (
-              <div className="button-cluster">
-                <Button variant="secondary" onClick={async () => {
-                  const name = await prompt({ title: "Rename category", description: `Choose a new name for ${row.name}.`, label: "Category name", submitLabel: "Rename", maxLength: 200 });
-                  if (!name) return;
-                  await adminApi.renameCategory(api, scope.organizationId, row.id, name);
-                  categories.reload();
-                }}>Rename</Button>
-                <Button variant={row.isActive ? "danger" : "secondary"} onClick={async () => {
-                  const action = row.isActive ? "archive" : "activate";
-                  if (!(await confirm({ title: `${action} category?`, description: `${action} ${row.name}?`, confirmLabel: action }))) return;
-                  await adminApi.categoryAction(api, scope.organizationId, row.id, action);
-                  categories.reload();
-                }}>{row.isActive ? "Archive" : "Activate"}</Button>
-              </div>
-            )},
+            {
+              key: "products",
+              header: "Products",
+              cell: (row) => row.productCount,
+            },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => (row.isActive ? "Active" : "Archived"),
+            },
+            {
+              key: "actions",
+              header: "",
+              cell: (row) => (
+                <div className="button-cluster">
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      const name = await prompt({
+                        title: "Rename category",
+                        description: `Choose a new name for ${row.name}.`,
+                        label: "Category name",
+                        submitLabel: "Rename",
+                        maxLength: 200,
+                      });
+                      if (!name) return;
+                      await adminApi.renameCategory(
+                        api,
+                        scope.organizationId,
+                        row.id,
+                        name,
+                      );
+                      categories.reload();
+                    }}
+                  >
+                    Rename
+                  </Button>
+                  <Button
+                    variant={row.isActive ? "danger" : "secondary"}
+                    onClick={async () => {
+                      const action = row.isActive ? "archive" : "activate";
+                      if (
+                        !(await confirm({
+                          title: `${action} category?`,
+                          description: `${action} ${row.name}?`,
+                          confirmLabel: action,
+                        }))
+                      )
+                        return;
+                      await adminApi.categoryAction(
+                        api,
+                        scope.organizationId,
+                        row.id,
+                        action,
+                      );
+                      categories.reload();
+                    }}
+                  >
+                    {row.isActive ? "Archive" : "Activate"}
+                  </Button>
+                </div>
+              ),
+            },
           ]}
         />
       )}
