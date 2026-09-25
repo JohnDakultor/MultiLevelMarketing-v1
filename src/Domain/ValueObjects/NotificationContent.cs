@@ -12,6 +12,7 @@ public sealed record NotificationContent
     private const int MaxTitleLength = 150;
     private const int MaxBodyLength = 4000;
     private const int MaxPathLength = 2048;
+    private static readonly Uri TrustedApplicationOrigin = new("https://application.invalid");
 
     private static readonly Regex ScriptMarkupRegex = new(
         @"<[^>]*script.*?>|on\w+\s*=",
@@ -58,8 +59,17 @@ public sealed record NotificationContent
 
             ValidateSanitization(trimmedPath, "ActionPath");
 
-            bool isRelativePath = trimmedPath.StartsWith('/') && !trimmedPath.StartsWith("//");
-            if (!isRelativePath || Uri.TryCreate(trimmedPath, UriKind.Absolute, out _))
+            var hasTrustedPrefix =
+                trimmedPath.StartsWith('/')
+                && !trimmedPath.StartsWith("//", StringComparison.Ordinal)
+                && !trimmedPath.Contains('\\');
+            var resolvesWithinApplication =
+                Uri.TryCreate(TrustedApplicationOrigin, trimmedPath, out var resolvedPath)
+                && resolvedPath.Scheme == TrustedApplicationOrigin.Scheme
+                && resolvedPath.Host == TrustedApplicationOrigin.Host
+                && resolvedPath.Port == TrustedApplicationOrigin.Port;
+
+            if (!hasTrustedPrefix || !resolvesWithinApplication)
             {
                 throw new DomainInvariantException(
                     "Action path must be a valid, trusted relative application path starting with a single '/' forwarding slash."

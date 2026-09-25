@@ -57,6 +57,12 @@ public sealed class NotificationTests
         Should.Throw<DomainInvariantException>(() =>
             new NotificationContent("Title", "Body", "/path<script>")
         );
+        Should.Throw<DomainInvariantException>(() =>
+            new NotificationContent("Title", "Body", "//evil.example/path")
+        );
+        Should.Throw<DomainInvariantException>(() =>
+            new NotificationContent("Title", "Body", "/\\evil.example/path")
+        );
     }
 
     private static Notification Create(DateTimeOffset createdAt) =>

@@ -1,10 +1,10 @@
 # Azure deployment
 
-The application is deployed by [.github/workflows/deploy.yml](.github/workflows/deploy.yml). A push to `develop` deploys the `development` environment. UAT and production deployments are started manually with the workflow input.
+The application is deployed by [.github/workflows/deploy.yml](.github/workflows/deploy.yml). Development runs locally. A push to `develop` deploys UAT, while production deployment is started manually with the workflow input.
 
 ## GitHub environments
 
-Create GitHub environments named `development`, `uat`, and `production`. Define these variables in each environment so every environment gets isolated Azure resources:
+Create GitHub environments named `uat` and `production`. Define these variables in each environment so both cloud environments get isolated Azure resources:
 
 - `AZURE_CLIENT_ID`: application/client ID of the Azure workload identity.
 - `AZURE_TENANT_ID`: Microsoft Entra tenant ID.
@@ -18,7 +18,7 @@ Configure a federated credential for each GitHub environment. Its subject is `re
 
 The AppHost provisions Azure Container Apps for the API and three Next.js portals, Azure Database for PostgreSQL, Azure Storage containers for marketplace assets and the shared ASP.NET Data Protection key ring, Azure Key Vault, Azure Container Registry, and a manually triggered Container Apps migration job.
 
-The workflow validates the full backend and frontend, deploys the infrastructure and applications, then starts the `database-migrator` job and waits for it to succeed. Aspire deployment state is cached separately for development, UAT, and production.
+The workflow validates the full backend and frontend, deploys the infrastructure and applications, then starts the `database-migrator` job and waits for it to succeed. Aspire deployment state is cached separately for UAT and production.
 
 ## Key Vault configuration
 
