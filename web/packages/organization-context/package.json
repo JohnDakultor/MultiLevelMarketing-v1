@@ -1,0 +1,21 @@
+{
+  "name": "@modular-mlm/organization-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@modular-mlm/api-client": "*",
+    "@modular-mlm/contracts": "*",
+    "react": "^19.2.8"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8"
+  }
+}

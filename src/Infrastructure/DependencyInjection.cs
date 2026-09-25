@@ -1,5 +1,3 @@
-﻿using Amazon.Runtime;
-using Amazon.S3;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -61,6 +59,8 @@ public static class DependencyInjection
         builder.Services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>()
         );
+
+        builder.Services.AddSingleton<IDatabaseExceptionClassifier, PostgresDatabaseExceptionClassifier>();
 
         builder.Services.AddScoped<ApplicationDbContextInitialiser>();
         builder.Services.AddAgentOperationsInfrastructure();
@@ -150,58 +150,34 @@ public static class DependencyInjection
             IBrandingAssetContentInspector,
             BrandingAssetContentInspector
         >();
-        var s3Section = builder.Configuration.GetSection(S3ObjectStorageOptions.SectionName);
-        if (s3Section.GetValue<bool>(nameof(S3ObjectStorageOptions.Enabled)))
+        var blobSection = builder.Configuration.GetSection(
+            AzureBlobObjectStorageOptions.SectionName
+        );
+        if (blobSection.GetValue<bool>(nameof(AzureBlobObjectStorageOptions.Enabled)))
         {
             builder
-                .Services.AddOptions<S3ObjectStorageOptions>()
-                .Bind(s3Section)
+                .Services.AddOptions<AzureBlobObjectStorageOptions>()
+                .Bind(blobSection)
                 .Validate(
-                    options => !string.IsNullOrWhiteSpace(options.Region),
-                    "S3 region is required."
-                )
-                .Validate(
-                    options => !string.IsNullOrWhiteSpace(options.BucketName),
-                    "S3 bucket is required."
-                )
-                .Validate(
-                    options => IsHttpUri(options.PublicBaseUrl),
-                    "S3 public base URL is invalid."
-                )
-                .Validate(
-                    options => !string.IsNullOrWhiteSpace(options.AccessKey),
-                    "S3 access key is required."
-                )
-                .Validate(
-                    options => !string.IsNullOrWhiteSpace(options.SecretKey),
-                    "S3 secret key is required."
+                    options => string.IsNullOrWhiteSpace(options.PublicBaseUrl)
+                        || IsHttpUri(options.PublicBaseUrl),
+                    "Azure Blob public base URL is invalid."
                 )
                 .ValidateOnStart();
-            builder.Services.AddSingleton<IAmazonS3>(provider =>
-            {
-                var options = provider
-                    .GetRequiredService<Microsoft.Extensions.Options.IOptions<S3ObjectStorageOptions>>()
-                    .Value;
-                var config = new AmazonS3Config
-                {
-                    ForcePathStyle = options.ForcePathStyle,
-                    AuthenticationRegion = options.Region,
-                };
-                if (!string.IsNullOrWhiteSpace(options.ServiceUrl))
-                    config.ServiceURL = options.ServiceUrl;
-                else
-                    config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(options.Region);
-
-                return new AmazonS3Client(
-                    new BasicAWSCredentials(options.AccessKey, options.SecretKey),
-                    config
-                );
-            });
-            builder.Services.AddScoped<IObjectStorage, S3ObjectStorage>();
+            builder.AddAzureBlobContainerClient(Services.ObjectStorageContainer);
+            builder.Services.AddScoped<IObjectStorage, AzureBlobObjectStorage>();
         }
         else
         {
             builder.Services.AddScoped<IObjectStorage, ObjectStorage>();
+        }
+        if (
+            builder.Configuration.GetValue<bool>(
+                $"{DataProtectionStorageOptions.SectionName}:Enabled"
+            )
+        )
+        {
+            builder.AddKeyedAzureBlobContainerClient(Services.DataProtectionContainer);
         }
         builder.Services.AddSingleton<ICommissionReleaseLock>(
             new PostgresCommissionReleaseLock(connectionString)
@@ -265,4 +241,5 @@ public static class DependencyInjection
         Uri.TryCreate(value, UriKind.Absolute, out var uri)
         && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
         && string.IsNullOrEmpty(uri.UserInfo);
+
 }

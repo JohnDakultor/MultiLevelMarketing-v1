@@ -12,6 +12,7 @@ import type {
   BinaryTreeNodeDto,
   BinaryPairingRunDto,
   BinaryVolumeSummaryDto,
+  BinaryVolumeLedgerPageDto,
   CommissionHistoryItemDto,
   CurrentAgentContextDto,
   DirectRecruitDto,
@@ -209,6 +210,17 @@ export const agentApi = {
   ) =>
     api.request<BinaryVolumeSummaryDto>(
       `${agent(organizationId, agentId)}/finance/binary-volume`,
+      { signal },
+    ),
+  binaryVolumeLedger: (
+    api: ApiClient,
+    organizationId: string,
+    agentId: string,
+    page: number,
+    signal?: AbortSignal,
+  ) =>
+    api.request<BinaryVolumeLedgerPageDto>(
+      `${agent(organizationId, agentId)}/finance/binary-volume/entries?page=${page}&pageSize=20`,
       { signal },
     ),
   pairingHistory: (

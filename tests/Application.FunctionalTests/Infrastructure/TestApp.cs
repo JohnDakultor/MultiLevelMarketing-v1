@@ -24,6 +24,18 @@ public static class TestApp
         return await mediator.Send(request);
     }
 
+    public static async Task<TResponse> SendAsync<TResponse>(
+        IRequest<TResponse> request,
+        CancellationToken cancellationToken
+    )
+    {
+        using var scope = FunctionalTestSetup.ScopeFactory.CreateScope();
+
+        var mediator = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        return await mediator.Send(request, cancellationToken);
+    }
+
     public static async Task SendAsync(IBaseRequest request)
     {
         using var scope = FunctionalTestSetup.ScopeFactory.CreateScope();

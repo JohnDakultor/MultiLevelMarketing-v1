@@ -156,3 +156,28 @@ test("placement discovery and financial operations use selected tenant resources
     "/api/organizations/org-1/orders/payments/payment-1/reconcile",
   );
 });
+
+test("new administration workflows use tenant-scoped backend contracts", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input, init) => {
+      requests.push({ url: String(input), init });
+      if (String(input).endsWith("/api/security/antiforgery-token"))
+        return Response.json({ requestToken: "token", headerName: "X-CSRF" });
+      return init?.method ? new Response(null, { status: 204 }) : Response.json({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+    },
+  });
+
+  await adminApi.categoryAction(api, "org-1", "category-1", "archive");
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/admin/categories/category-1/archive");
+  await adminApi.startOrderProcessing(api, "org-1", "order-1");
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/admin/orders/order-1/processing");
+  await adminApi.updatePlan(api, "org-1", "plan-1", { expectedConfigurationVersion: 4 });
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/admin/compensation/plans/plan-1");
+  await adminApi.adminWallets(api, "org-1", 1, "AGENT");
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/admin/wallets?page=1&pageSize=20&search=AGENT&negativeOnly=false");
+  await adminApi.commissionLedger(api, "org-1", 2);
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/admin/commissions?page=2&pageSize=20&includeReversals=true");
+  await adminApi.updateReferralSettings(api, "org-1", { attributionWindowDays: 30, allowReferralOverride: false, referralLockAfterFirstPurchase: true });
+  assert.equal(requests.at(-1)?.url, "/api/organizations/org-1/referral-settings");
+});

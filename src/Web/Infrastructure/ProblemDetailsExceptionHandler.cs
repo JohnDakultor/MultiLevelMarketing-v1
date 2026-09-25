@@ -177,6 +177,16 @@ public class ProblemDetailsExceptionHandler(
                     "The resource changed while the request was being processed."
                 )
             ),
+            DatabaseConcurrencyConflictException conflict => (
+                StatusCodes.Status409Conflict,
+                problemFactory.Create(
+                    httpContext,
+                    StatusCodes.Status409Conflict,
+                    ApiErrorCodes.ConcurrencyConflict,
+                    "Concurrent update conflict",
+                    conflict.Message
+                )
+            ),
             _ => (
                 StatusCodes.Status500InternalServerError,
                 problemFactory.Create(
@@ -231,7 +241,9 @@ public class ProblemDetailsExceptionHandler(
             UnauthorizedAccessException => ApiErrorCodes.Unauthorized,
             ForbiddenAccessException => ApiErrorCodes.Forbidden,
             IdempotencyConflictException => ApiErrorCodes.IdempotencyConflict,
-            InventoryConcurrencyConflictException or DbUpdateConcurrencyException =>
+            InventoryConcurrencyConflictException
+            or DatabaseConcurrencyConflictException
+            or DbUpdateConcurrencyException =>
                 ApiErrorCodes.ConcurrencyConflict,
             PlacementConflictException => ApiErrorCodes.PlacementConflict,
             ConflictException => ApiErrorCodes.Conflict,

@@ -10,11 +10,11 @@ public sealed class ObjectStorage : IObjectStorage
         CancellationToken cancellationToken
     ) =>
         throw new InvalidOperationException(
-            "Configure S3-compatible object storage before uploading marketplace assets."
+            "Configure Azure Blob object storage before uploading marketplace assets."
         );
 
     public Task DeleteAsync(string objectKey, CancellationToken cancellationToken) =>
         throw new InvalidOperationException(
-            "Configure S3-compatible object storage before deleting marketplace assets."
+            "Configure Azure Blob object storage before deleting marketplace assets."
         );
 }

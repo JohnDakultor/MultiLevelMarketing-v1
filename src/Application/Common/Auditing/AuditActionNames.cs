@@ -38,12 +38,16 @@ public static class AuditActionNames
     public const string CommerceSettingsUpdated = "COMMERCE_SETTINGS_UPDATED";
 
     public const string CommissionPlanCreated = "COMMISSION_PLAN_CREATED";
+    public const string CommissionPlanUpdated = "COMMISSION_PLAN_UPDATED";
     public const string CommissionPlanPublished = "COMMISSION_PLAN_PUBLISHED";
     public const string CommissionPlanRetired = "COMMISSION_PLAN_RETIRED";
     public const string WalletAdjusted = "WALLET_ADJUSTED";
     public const string OrderItemRefundRequested = "ORDER_ITEM_REFUND_REQUESTED";
     public const string OrderItemRefundReversed = "ORDER_ITEM_REFUND_REVERSED";
     public const string OrderCancelled = "ORDER_CANCELLED";
+    public const string OrderProcessingStarted = "ORDER_PROCESSING_STARTED";
+    public const string OrderShipped = "ORDER_SHIPPED";
+    public const string OrderDelivered = "ORDER_DELIVERED";
     public const string PayoutApproved = "PAYOUT_APPROVED";
     public const string PayoutRejected = "PAYOUT_REJECTED";
     public const string PayoutProcessingStarted = "PAYOUT_PROCESSING_STARTED";
@@ -64,4 +68,9 @@ public static class AuditActionNames
     public const string AdministratorPasswordChanged = "ADMIN_PASSWORD_CHANGED";
     public const string AdministratorTwoFactorChanged = "ADMIN_TWO_FACTOR_CHANGED";
     public const string OutboxMessageReplayed = "OUTBOX_MESSAGE_REPLAYED";
+
+    public const string CategoryCreated = "CATEGORY_CREATED";
+    public const string CategoryRenamed= "CATEGORY_Renamed";
+    public const string CategoryArchived = "CATEGORY_ARCHIVED";
+    public const string CategoryActivated = "CATEGORY_ACTIVATED";
 }

@@ -1,9 +1,14 @@
-using Azure.Identity;
+extern alias AzureIdentity;
+
+using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Application.Common.Models;
 using modular_mlm.Infrastructure.Data;
+using modular_mlm.Infrastructure.Storage;
+using modular_mlm.Shared;
 using modular_mlm.Web.Infrastructure.Security;
 using modular_mlm.Web.Infrastructure.Tenancy;
 using modular_mlm.Web.Services;
@@ -24,7 +29,37 @@ public static class DependencyInjection
             ICurrentAuthenticationSession,
             HttpCurrentAuthenticationSession
         >();
-        builder.Services.AddDataProtection();
+        var dataProtectionSection = builder.Configuration.GetSection(
+            DataProtectionStorageOptions.SectionName
+        );
+        builder
+            .Services.AddOptions<DataProtectionStorageOptions>()
+            .Bind(dataProtectionSection)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.ApplicationName),
+                "Data Protection application name is required."
+            )
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.BlobName),
+                "Data Protection key blob name is required."
+            )
+            .ValidateOnStart();
+
+        var dataProtectionOptions = dataProtectionSection.Get<DataProtectionStorageOptions>()
+            ?? new DataProtectionStorageOptions();
+        var dataProtection = builder
+            .Services.AddDataProtection()
+            .SetApplicationName(dataProtectionOptions.ApplicationName);
+        if (dataProtectionOptions.Enabled)
+        {
+            dataProtection.PersistKeysToAzureBlobStorage(provider =>
+                provider
+                    .GetRequiredKeyedService<BlobContainerClient>(
+                        Services.DataProtectionContainer
+                    )
+                    .GetBlobClient(dataProtectionOptions.BlobName)
+            );
+        }
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IAuditContextAccessor, HttpAuditContextAccessor>();
@@ -49,7 +84,7 @@ public static class DependencyInjection
         });
 
         builder.Services.AddMarketplaceCors(builder.Configuration);
-        builder.Services.AddMarketplaceRateLimiting();
+        builder.Services.AddMarketplaceRateLimiting(builder.Configuration);
         builder.Services.AddMarketplaceAntiforgery(builder.Environment);
         builder.Services.AddRequestTimeouts();
         builder.Services.AddOrganizationResolution(builder.Configuration);
@@ -71,12 +106,14 @@ public static class DependencyInjection
 
     public static void AddKeyVaultIfConfigured(this IHostApplicationBuilder builder)
     {
-        var keyVaultUri = builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"];
+        var keyVaultUri =
+            builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"]
+            ?? builder.Configuration.GetConnectionString(Services.KeyVault);
         if (!string.IsNullOrWhiteSpace(keyVaultUri))
         {
             builder.Configuration.AddAzureKeyVault(
                 new Uri(keyVaultUri),
-                new DefaultAzureCredential()
+                new AzureIdentity::Azure.Identity.DefaultAzureCredential()
             );
         }
     }

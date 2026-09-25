@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using modular_mlm.Application.Common.Persistence;
 using modular_mlm.Domain.Catalog;
 using modular_mlm.Domain.Commerce;
 using modular_mlm.Domain.Compensation;
@@ -49,6 +50,17 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
                 owned.Property(x => x.ReferralLockAfterFirstPurchase).HasDefaultValue(true);
             }
         );
+    }
+}
+
+public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
+{
+    public void Configure(EntityTypeBuilder<Category> b)
+    {
+        b.ToTable("Categories");
+        b.HasIndex(x => new { x.OrganizationId, x.Slug })
+            .IsUnique()
+            .HasDatabaseName(DatabaseConstraintNames.CategoryOrganizationSlug);
     }
 }
 
@@ -121,6 +133,9 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
     public void Configure(EntityTypeBuilder<Order> b)
     {
         b.ToTable("Orders");
+        b.Property(x => x.ShippingCarrier).HasMaxLength(100);
+        b.Property(x => x.TrackingNumber).HasMaxLength(200);
+        b.Property(x => x.FulfillmentVersion).IsConcurrencyToken();
         b.HasIndex(x => new
         {
             x.OrganizationId,
@@ -212,6 +227,7 @@ public sealed class CommissionPlanConfiguration : IEntityTypeConfiguration<Commi
             })
             .IsUnique();
         b.Property(x => x.DirectSalesRate).HasPrecision(9, 6);
+        b.Property(x => x.ConfigurationVersion).IsConcurrencyToken();
         b.OwnsOne(x => x.BinaryPairing);
     }
 }
@@ -260,6 +276,19 @@ public sealed class FinancialPrecisionConfiguration
             x.Created,
             x.Id,
         });
+        b.HasIndex(x => new
+        {
+            x.OrganizationId,
+            x.Created,
+            x.Id,
+        }).HasDatabaseName("IX_CommissionTransactions_Org_Created_Id");
+        b.HasIndex(x => new
+        {
+            x.OrganizationId,
+            x.Type,
+            x.Created,
+            x.Id,
+        }).HasDatabaseName("IX_CommissionTransactions_Org_Type_Created_Id");
     }
 
     public void Configure(EntityTypeBuilder<BinaryVolumeEntry> b)
@@ -322,6 +351,8 @@ public sealed class FinancialPrecisionConfiguration
             x.Created,
             x.Id,
         });
+        b.HasIndex(x => new { x.WalletId, x.Type })
+            .HasDatabaseName("IX_WalletEntries_Wallet_Type");
         b.HasIndex(x => new
             {
                 x.WalletId,

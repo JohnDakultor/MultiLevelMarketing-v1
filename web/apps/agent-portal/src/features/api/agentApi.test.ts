@@ -102,3 +102,20 @@ test("referral-code regeneration uses an antiforgery-protected POST", async () =
   );
   assert.equal(request.init?.method, "POST");
 });
+
+test("binary-volume ledger uses the owned Agent finance route", async () => {
+  let requestedUrl = "";
+  const api = new ApiClient({
+    fetchImplementation: async (input) => {
+      requestedUrl = String(input);
+      return Response.json({ items: [], page: 3, pageSize: 20, totalCount: 0 });
+    },
+  });
+
+  await agentApi.binaryVolumeLedger(api, "org-1", "agent-1", 3);
+
+  assert.equal(
+    requestedUrl,
+    "/api/organizations/org-1/agents/agent-1/finance/binary-volume/entries?page=3&pageSize=20",
+  );
+});

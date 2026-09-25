@@ -1,4 +1,5 @@
 using modular_mlm.Application.Common.Auditing;
+using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Domain.Catalog;
 using modular_mlm.Domain.Commerce;
@@ -90,6 +91,13 @@ public sealed class RequestCancellationCommandHandler(
             request.Reason.Trim()
         );
 
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new DatabaseConcurrencyConflictException("order", order.Id.ToString());
+        }
     }
 }

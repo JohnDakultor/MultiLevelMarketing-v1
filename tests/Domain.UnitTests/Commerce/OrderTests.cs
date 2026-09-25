@@ -60,8 +60,12 @@ public sealed class OrderTests
         order.MarkPaid(DateTimeOffset.UtcNow);
         order.StartProcessing();
         item.FulfillmentStatus.ShouldBe(FulfillmentStatus.Processing);
-        order.Ship();
+        var shippedAt = DateTimeOffset.UtcNow;
+        order.Ship(shippedAt, " DHL ", " TRACK-123 ");
         item.FulfillmentStatus.ShouldBe(FulfillmentStatus.Shipped);
+        order.ShippedAt.ShouldBe(shippedAt);
+        order.ShippingCarrier.ShouldBe("DHL");
+        order.TrackingNumber.ShouldBe("TRACK-123");
         order.Deliver(DateTimeOffset.UtcNow);
         item.FulfillmentStatus.ShouldBe(FulfillmentStatus.Delivered);
     }

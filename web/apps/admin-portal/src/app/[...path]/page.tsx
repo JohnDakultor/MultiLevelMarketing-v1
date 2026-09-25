@@ -4,6 +4,7 @@ import { CompensationPage } from "../../features/compensation/CompensationPage";
 import { AdminOrdersPage } from "../../features/orders/AdminOrdersPage";
 import { OrganizationSettingsPage } from "../../features/organization/OrganizationSettingsPage";
 import { PayoutAdministrationPage } from "../../features/payouts/PayoutAdministrationPage";
+import { FinanceAdministrationPage } from "../../features/finance/FinanceAdministrationPage";
 import { RouteLoading } from "@modular-mlm/design-system";
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
@@ -49,6 +50,7 @@ export default async function AdminRoute({
   if (path[0] === "orders") return <AdminOrdersPage />;
   if (path[0] === "agents") return <AgentOperationsPage />;
   if (path[0] === "compensation") return <CompensationPage />;
+  if (path[0] === "finance") return <FinanceAdministrationPage />;
   if (path[0] === "payouts") return <PayoutAdministrationPage />;
   if (path[0] === "administrators") return <AdministratorsPage />;
   if (path[0] === "reports") return <AdminReportsPage />;

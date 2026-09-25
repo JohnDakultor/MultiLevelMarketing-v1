@@ -16,6 +16,10 @@ public sealed class Order : OrganizationEntity
     public PaymentStatus PaymentStatus { get; private set; }
     public DateTimeOffset? PaidAt { get; private set; }
     public DateTimeOffset? DeliveredAt { get; private set; }
+    public DateTimeOffset? ShippedAt { get; private set; }
+    public string? ShippingCarrier { get; private set; }
+    public string? TrackingNumber { get; private set; }
+    public long FulfillmentVersion { get; private set; }
     public string Currency { get; private set; } = string.Empty;
     public decimal Subtotal { get; private set; }
     public decimal DiscountTotal { get; private set; }
@@ -112,6 +116,7 @@ public sealed class Order : OrganizationEntity
         PaymentStatus = PaymentStatus.Paid;
         Status = OrderStatus.Paid;
         PaidAt = paidAt;
+        FulfillmentVersion++;
         AddDomainEvent(new OrderPaidEvent(OrganizationId, Id));
     }
 
@@ -128,12 +133,30 @@ public sealed class Order : OrganizationEntity
             item.StartFulfillment();
 
         Status = OrderStatus.Processing;
+        FulfillmentVersion++;
     }
 
-    public void Ship()
+    public void Ship() => Ship(DateTimeOffset.UtcNow);
+
+    public void Ship(
+        DateTimeOffset shippedAt,
+        string? shippingCarrier = null,
+        string? trackingNumber = null
+    )
     {
         if (Status != OrderStatus.Processing)
             throw new DomainInvariantException("Only processing orders can ship.");
+
+        var normalizedCarrier = string.IsNullOrWhiteSpace(shippingCarrier)
+            ? null
+            : shippingCarrier.Trim();
+        var normalizedTrackingNumber = string.IsNullOrWhiteSpace(trackingNumber)
+            ? null
+            : trackingNumber.Trim();
+        if ((normalizedCarrier is null) != (normalizedTrackingNumber is null))
+            throw new DomainInvariantException(
+                "Shipping carrier and tracking number must be supplied together."
+            );
 
         foreach (
             var item in _items.Where(item => item.FulfillmentStatus == FulfillmentStatus.Processing)
@@ -141,6 +164,10 @@ public sealed class Order : OrganizationEntity
             item.MarkShipped();
 
         Status = OrderStatus.Shipped;
+        ShippedAt = shippedAt;
+        ShippingCarrier = normalizedCarrier;
+        TrackingNumber = normalizedTrackingNumber;
+        FulfillmentVersion++;
     }
 
     public void Deliver(DateTimeOffset deliveredAt)
@@ -155,6 +182,7 @@ public sealed class Order : OrganizationEntity
 
         Status = OrderStatus.Delivered;
         DeliveredAt = deliveredAt;
+        FulfillmentVersion++;
     }
 
     public void Cancel()
@@ -170,6 +198,7 @@ public sealed class Order : OrganizationEntity
             item.Cancel();
 
         Status = OrderStatus.Cancelled;
+        FulfillmentVersion++;
     }
 
     public void Refund(bool partial)
@@ -178,6 +207,7 @@ public sealed class Order : OrganizationEntity
             throw new DomainInvariantException("Only paid orders can be refunded.");
         PaymentStatus = partial ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded;
         Status = partial ? OrderStatus.PartiallyRefunded : OrderStatus.Refunded;
+        FulfillmentVersion++;
         AddDomainEvent(new OrderRefundedEvent(Id));
     }
 

@@ -26,6 +26,7 @@ import { useAgentScope } from "../shared/useAgentScope";
 export function EarningsPage() {
   const scope = useAgentScope();
   const [page, setPage] = useState(1);
+  const [volumePage, setVolumePage] = useState(1);
   const [selectedCommissionId, setSelectedCommissionId] = useState<
     string | null
   >(null);
@@ -53,6 +54,18 @@ export function EarningsPage() {
     [scope.organizationId, scope.agentId, page],
     scope.isReady,
   );
+  const volumeLedger = useApiQuery(
+    (api, signal) =>
+      agentApi.binaryVolumeLedger(
+        api,
+        scope.organizationId,
+        scope.agentId,
+        volumePage,
+        signal,
+      ),
+    [scope.organizationId, scope.agentId, volumePage],
+    scope.isReady,
+  );
   const pairing = useApiQuery(
     (api, signal) =>
       agentApi.pairingHistory(api, scope.organizationId, scope.agentId, signal),
@@ -71,7 +84,7 @@ export function EarningsPage() {
     [scope.organizationId, scope.agentId, selectedCommissionId],
     scope.isReady && selectedCommissionId !== null,
   );
-  if (earnings.isLoading || volume.isLoading || commissions.isLoading)
+  if (earnings.isLoading || volume.isLoading || commissions.isLoading || volumeLedger.isLoading)
     return <Loading />;
   if (earnings.error)
     return <Failure error={earnings.error} retry={earnings.reload} />;
@@ -106,6 +119,30 @@ export function EarningsPage() {
           label="Right available BV"
           value={String(volume.data?.rightAvailable ?? 0)}
         />
+      </div>
+      <h2>Binary volume ledger</h2>
+      {volumeLedger.error ? (
+        <Failure error={volumeLedger.error} retry={volumeLedger.reload} />
+      ) : !volumeLedger.data?.items.length ? (
+        <EmptyState title="No binary volume entries" description="Order and pairing volume entries will appear here." />
+      ) : (
+        <DataTable
+          caption="Binary volume ledger"
+          rows={volumeLedger.data.items}
+          rowKey={(row) => row.id}
+          columns={[
+            { key: "date", header: "Effective", cell: (row) => date(row.effectiveAt) },
+            { key: "side", header: "Side", cell: (row) => row.side === 0 ? "Left" : "Right" },
+            { key: "type", header: "Type", cell: (row) => row.entryType },
+            { key: "source", header: "Source", cell: (row) => row.sourceOrderItemId ?? row.pairingRunId ?? "—" },
+            { key: "volume", header: "Volume", cell: (row) => row.volume },
+          ]}
+        />
+      )}
+      <div className="pagination-row">
+        <Button variant="secondary" disabled={!volumeLedger.data?.hasPreviousPage} onClick={() => setVolumePage((value) => value - 1)}>Previous BV</Button>
+        <span>BV page {volumeLedger.data?.page ?? volumePage}</span>
+        <Button variant="secondary" disabled={!volumeLedger.data?.hasNextPage} onClick={() => setVolumePage((value) => value + 1)}>Next BV</Button>
       </div>
       {!commissions.data?.length ? (
         <EmptyState

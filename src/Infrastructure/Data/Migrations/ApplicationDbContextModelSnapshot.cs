@@ -249,7 +249,11 @@ namespace modular_mlm.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Categories");
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Categories_OrganizationId_Slug");
+
+                    b.ToTable("Categories", (string)null);
                 });
 
             modelBuilder.Entity("modular_mlm.Domain.Catalog.InventoryAdjustment", b =>
@@ -700,6 +704,10 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.Property<decimal>("DiscountTotal")
                         .HasColumnType("numeric");
 
+                    b.Property<long>("FulfillmentVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.Property<decimal>("GrandTotal")
                         .HasColumnType("numeric");
 
@@ -722,9 +730,16 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.Property<int>("PaymentStatus")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset?>("ShippedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ShippingAddressJson")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("ShippingCarrier")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<decimal>("ShippingTotal")
                         .HasColumnType("numeric");
@@ -737,6 +752,10 @@ namespace modular_mlm.Infrastructure.Data.Migrations
 
                     b.Property<decimal>("TaxTotal")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
@@ -1135,6 +1154,10 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<long>("ConfigurationVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.Property<DateTimeOffset>("Created")
                         .HasColumnType("timestamp with time zone");
 
@@ -1259,6 +1282,9 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasFilter("\"SourceOrderItemRefundId\" IS NOT NULL");
 
+                    b.HasIndex("OrganizationId", "Created", "Id")
+                        .HasDatabaseName("IX_CommissionTransactions_Org_Created_Id");
+
                     b.HasIndex("OrganizationId", "BeneficiaryAgentId", "Created", "Id");
 
                     b.HasIndex("OrganizationId", "BeneficiaryAgentId", "PairingRunId", "RuleId")
@@ -1266,6 +1292,9 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                         .HasFilter("\"PairingRunId\" IS NOT NULL");
 
                     b.HasIndex("OrganizationId", "Status", "Created", "Id");
+
+                    b.HasIndex("OrganizationId", "Type", "Created", "Id")
+                        .HasDatabaseName("IX_CommissionTransactions_Org_Type_Created_Id");
 
                     b.HasIndex("OrganizationId", "BeneficiaryAgentId", "SourceOrderId", "SourceOrderItemId", "RuleId")
                         .IsUnique()
@@ -2383,6 +2412,9 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.HasIndex("WalletId", "IdempotencyKey")
                         .IsUnique()
                         .HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+                    b.HasIndex("WalletId", "Type")
+                        .HasDatabaseName("IX_WalletEntries_Wallet_Type");
 
                     b.HasIndex("ReversalOfEntryId", "SourceId", "Type")
                         .IsUnique()

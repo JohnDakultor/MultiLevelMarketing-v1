@@ -83,6 +83,23 @@ public static class AuditCoverageMap
         AuditActionNames.ProductArchived,
         AuditEntityNames.Product
     );
+
+    public static readonly AuditCoverageDefinition CategoryCreated = Define(
+        AuditActionNames.CategoryCreated,
+        AuditEntityNames.Category
+    );
+    public static readonly AuditCoverageDefinition CategoryRenamed = Define(
+        AuditActionNames.CategoryRenamed,
+        AuditEntityNames.Category
+    );
+    public static readonly AuditCoverageDefinition CategoryActivated = Define(
+        AuditActionNames.CategoryActivated,
+        AuditEntityNames.Category
+    );
+    public static readonly AuditCoverageDefinition CategoryArchived = Define(
+        AuditActionNames.CategoryArchived,
+        AuditEntityNames.Category
+    );
     public static readonly AuditCoverageDefinition CommissionProfileCreated = Define(
         AuditActionNames.CommissionProfileCreated,
         AuditEntityNames.ProductCommissionProfile
@@ -150,6 +167,10 @@ public static class AuditCoverageMap
         AuditActionNames.CommissionPlanCreated,
         AuditEntityNames.CommissionPlan
     );
+    public static readonly AuditCoverageDefinition CommissionPlanUpdated = Define(
+        AuditActionNames.CommissionPlanUpdated,
+        AuditEntityNames.CommissionPlan
+    );
     public static readonly AuditCoverageDefinition CommissionPlanPublished = Define(
         AuditActionNames.CommissionPlanPublished,
         AuditEntityNames.CommissionPlan
@@ -177,6 +198,18 @@ public static class AuditCoverageMap
         AuditActionNames.OrderCancelled,
         AuditEntityNames.Order,
         true
+    );
+    public static readonly AuditCoverageDefinition OrderProcessingStarted = Define(
+        AuditActionNames.OrderProcessingStarted,
+        AuditEntityNames.Order
+    );
+    public static readonly AuditCoverageDefinition OrderShipped = Define(
+        AuditActionNames.OrderShipped,
+        AuditEntityNames.Order
+    );
+    public static readonly AuditCoverageDefinition OrderDelivered = Define(
+        AuditActionNames.OrderDelivered,
+        AuditEntityNames.Order
     );
     public static readonly AuditCoverageDefinition PayoutApproved = Define(
         AuditActionNames.PayoutApproved,
@@ -297,12 +330,16 @@ public static class AuditCoverageMap
                 WalletSettingsUpdated,
                 CommerceSettingsUpdated,
                 CommissionPlanCreated,
+                CommissionPlanUpdated,
                 CommissionPlanPublished,
                 CommissionPlanRetired,
                 WalletAdjusted,
                 OrderItemRefundRequested,
                 OrderItemRefundReversed,
                 OrderCancelled,
+                OrderProcessingStarted,
+                OrderShipped,
+                OrderDelivered,
                 PayoutApproved,
                 PayoutRejected,
                 PayoutProcessingStarted,

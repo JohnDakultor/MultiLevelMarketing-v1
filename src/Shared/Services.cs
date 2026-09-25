@@ -31,4 +31,22 @@ public static class Services
     /// key retain the SDD name above.
     /// </summary>
     public const string DatabaseResource = "modular-mlm";
+
+    /// <summary>
+    /// The Azure Storage account resource used for public marketplace assets.
+    /// </summary>
+    public const string ObjectStorageAccount = "object-storage";
+
+    /// <summary>
+    /// The Azure Blob container resource and physical container name.
+    /// </summary>
+    public const string ObjectStorageContainer = "marketplace-assets";
+
+    public const string DataProtectionContainer = "data-protection";
+    public const string DataProtectionKeyBlob = "keys.xml";
+    public const string KeyVault = "key-vault";
+    public const string DatabaseMigrator = "database-migrator";
+    public const string Storefront = "storefront";
+    public const string AgentPortal = "agent-portal";
+    public const string AdminPortal = "admin-portal";
 }

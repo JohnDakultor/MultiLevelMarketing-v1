@@ -1,5 +1,6 @@
-using Amazon.S3;
-using Amazon.S3.Model;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
 using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Application.Common.Interfaces;
@@ -7,10 +8,12 @@ using modular_mlm.Application.Common.Models;
 
 namespace modular_mlm.Infrastructure.Storage;
 
-public sealed class S3ObjectStorage(IAmazonS3 client, IOptions<S3ObjectStorageOptions> options)
-    : IObjectStorage
+public sealed class AzureBlobObjectStorage(
+    BlobContainerClient container,
+    IOptions<AzureBlobObjectStorageOptions> options
+) : IObjectStorage
 {
-    private readonly S3ObjectStorageOptions _options = options.Value;
+    private readonly AzureBlobObjectStorageOptions _options = options.Value;
 
     public async Task<StoredObject> PutAsync(
         ObjectUploadRequest request,
@@ -19,27 +22,30 @@ public sealed class S3ObjectStorage(IAmazonS3 client, IOptions<S3ObjectStorageOp
     {
         try
         {
-            var putRequest = new PutObjectRequest
-            {
-                BucketName = _options.BucketName,
-                Key = request.ObjectKey,
-                InputStream = request.Content,
-                AutoCloseStream = false,
-                ContentType = request.ContentType,
-            };
-            putRequest.Headers.CacheControl = "public,max-age=31536000,immutable";
-            var response = await client.PutObjectAsync(putRequest, cancellationToken);
+            var blob = container.GetBlobClient(request.ObjectKey);
+            var response = await blob.UploadAsync(
+                request.Content,
+                new BlobUploadOptions
+                {
+                    HttpHeaders = new BlobHttpHeaders
+                    {
+                        ContentType = request.ContentType,
+                        CacheControl = "public,max-age=31536000,immutable",
+                    },
+                },
+                cancellationToken
+            );
 
             return new StoredObject(
                 request.ObjectKey,
                 BuildPublicUri(request.ObjectKey),
                 request.ContentType,
                 request.ContentLength,
-                response.ETag,
-                response.VersionId
+                response.Value.ETag.ToString(),
+                response.Value.VersionId
             );
         }
-        catch (AmazonS3Exception exception)
+        catch (RequestFailedException exception)
         {
             throw new ObjectStorageException("The object could not be stored.", exception);
         }
@@ -50,9 +56,14 @@ public sealed class S3ObjectStorage(IAmazonS3 client, IOptions<S3ObjectStorageOp
         var validatedKey = ValidateKey(objectKey);
         try
         {
-            await client.DeleteObjectAsync(_options.BucketName, validatedKey, cancellationToken);
+            await container
+                .GetBlobClient(validatedKey)
+                .DeleteIfExistsAsync(
+                    DeleteSnapshotsOption.IncludeSnapshots,
+                    cancellationToken: cancellationToken
+                );
         }
-        catch (AmazonS3Exception exception)
+        catch (RequestFailedException exception)
         {
             throw new ObjectStorageException("The object could not be deleted.", exception);
         }
@@ -60,7 +71,10 @@ public sealed class S3ObjectStorage(IAmazonS3 client, IOptions<S3ObjectStorageOp
 
     private Uri BuildPublicUri(string objectKey)
     {
-        var baseUri = new Uri(_options.PublicBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+        var publicBaseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
+            ? container.Uri.AbsoluteUri
+            : _options.PublicBaseUrl;
+        var baseUri = new Uri(publicBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
         var escapedKey = string.Join('/', objectKey.Split('/').Select(Uri.EscapeDataString));
         return new Uri(baseUri, escapedKey);
     }

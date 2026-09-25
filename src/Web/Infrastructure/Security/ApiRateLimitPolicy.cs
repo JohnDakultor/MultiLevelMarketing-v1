@@ -6,7 +6,10 @@ namespace modular_mlm.Web.Infrastructure.Security;
 
 public static class ApiRateLimitPolicy
 {
-    public static IServiceCollection AddMarketplaceRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddMarketplaceRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         services.AddRateLimiter(options =>
         {
@@ -42,7 +45,11 @@ public static class ApiRateLimitPolicy
             );
             options.AddPolicy(
                 RateLimitPolicyNames.Authentication,
-                context => Fixed(context, 20, TimeSpan.FromMinutes(1))
+                context => Fixed(
+                    context,
+                    configuration.GetValue("RateLimiting:Authentication:PermitLimit", 20),
+                    TimeSpan.FromMinutes(1)
+                )
             );
             options.AddPolicy(
                 RateLimitPolicyNames.Invitation,

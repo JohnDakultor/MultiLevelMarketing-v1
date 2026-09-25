@@ -26,6 +26,10 @@ import type {
   StoredObjectDto,
   UpdateBrandingRequest,
   WalletSettingsDto,
+  AdminWalletsPageDto,
+  AdminWalletEntriesPageDto,
+  AdminCommissionLedgerPageDto,
+  ReferralSettingsDto,
 } from "@modular-mlm/contracts";
 
 const org = (id: string) => `/api/organizations/${id}`;
@@ -196,9 +200,25 @@ export const adminApi = {
       pageSize: number;
       totalCount: number;
     }>(
-      `${admin(id)}/products/categories?includeInactive=false&page=1&pageSize=100`,
+      `${admin(id)}/categories?includeInactive=true&page=1&pageSize=100`,
       { signal },
     ),
+  createCategory: (api: ApiClient, id: string, name: string, slug: string) =>
+    api.request<string>(`${admin(id)}/categories`, {
+      method: "POST",
+      body: { name, slug },
+    }),
+  renameCategory: (api: ApiClient, id: string, categoryId: string, name: string) =>
+    api.request<void>(`${admin(id)}/categories/${categoryId}`, {
+      method: "PUT",
+      body: { name },
+    }),
+  categoryAction: (
+    api: ApiClient,
+    id: string,
+    categoryId: string,
+    action: "archive" | "activate",
+  ) => api.request<void>(`${admin(id)}/categories/${categoryId}/${action}`, { method: "POST" }),
   createProduct: (api: ApiClient, id: string, body: object) =>
     api.request<string>(`${org(id)}/products`, { method: "POST", body }),
   publishProduct: (api: ApiClient, id: string, productId: string) =>
@@ -329,6 +349,16 @@ export const adminApi = {
     api.request<CommissionPlanDto[]>(`${admin(id)}/compensation/plans`, {
       signal,
     }),
+  plan: (api: ApiClient, id: string, planId: string, signal?: AbortSignal) =>
+    api.request<CommissionPlanDto>(
+      `${admin(id)}/compensation/plans/${planId}`,
+      { signal },
+    ),
+  updatePlan: (api: ApiClient, id: string, planId: string, body: object) =>
+    api.request<void>(`${admin(id)}/compensation/plans/${planId}`, {
+      method: "PUT",
+      body,
+    }),
   createPlan: (api: ApiClient, id: string, body: object) =>
     api.request<string>(`${admin(id)}/compensation/plans`, {
       method: "POST",
@@ -385,6 +415,30 @@ export const adminApi = {
   ) =>
     api.request<AdminOrderDetailsDto>(`${admin(id)}/orders/${orderId}`, {
       signal,
+    }),
+  startOrderProcessing: (api: ApiClient, id: string, orderId: string) =>
+    api.request<void>(`${admin(id)}/orders/${orderId}/processing`, {
+      method: "POST",
+    }),
+  shipOrder: (
+    api: ApiClient,
+    id: string,
+    orderId: string,
+    carrier: string | null,
+    trackingNumber: string | null,
+  ) =>
+    api.request<void>(`${admin(id)}/orders/${orderId}/ship`, {
+      method: "POST",
+      body: { carrier, trackingNumber },
+    }),
+  deliverOrder: (api: ApiClient, id: string, orderId: string) =>
+    api.request<void>(`${admin(id)}/orders/${orderId}/deliver`, {
+      method: "POST",
+    }),
+  cancelOrder: (api: ApiClient, id: string, orderId: string, reason: string) =>
+    api.request<void>(`${admin(id)}/orders/${orderId}/cancel`, {
+      method: "POST",
+      body: { reason },
     }),
   requestPaymentRefund: (
     api: ApiClient,
@@ -476,6 +530,45 @@ export const adminApi = {
       method: "POST",
       body: { reason },
     }),
+  adminWallets: (
+    api: ApiClient,
+    id: string,
+    page: number,
+    search: string,
+    signal?: AbortSignal,
+  ) =>
+    api.request<AdminWalletsPageDto>(
+      `${admin(id)}/wallets?page=${page}&pageSize=20&search=${encodeURIComponent(search)}&negativeOnly=false`,
+      { signal },
+    ),
+  adminWalletEntries: (
+    api: ApiClient,
+    id: string,
+    agentId: string,
+    page: number,
+    signal?: AbortSignal,
+  ) =>
+    api.request<AdminWalletEntriesPageDto>(
+      `${admin(id)}/wallets/${agentId}/entries?page=${page}&pageSize=20`,
+      { signal },
+    ),
+  commissionLedger: (
+    api: ApiClient,
+    id: string,
+    page: number,
+    signal?: AbortSignal,
+  ) =>
+    api.request<AdminCommissionLedgerPageDto>(
+      `${admin(id)}/commissions?page=${page}&pageSize=20&includeReversals=true`,
+      { signal },
+    ),
+  referralSettings: (api: ApiClient, id: string, signal?: AbortSignal) =>
+    api.request<ReferralSettingsDto>(`${org(id)}/referral-settings`, { signal }),
+  updateReferralSettings: (
+    api: ApiClient,
+    id: string,
+    body: ReferralSettingsDto,
+  ) => api.request<void>(`${org(id)}/referral-settings`, { method: "PUT", body }),
   audit: (api: ApiClient, id: string, signal?: AbortSignal) =>
     api.request<AuditLogDto[]>(`${admin(id)}/audit-trail?page=1&pageSize=50`, {
       signal,

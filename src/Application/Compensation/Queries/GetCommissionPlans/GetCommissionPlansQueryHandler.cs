@@ -30,7 +30,8 @@ public sealed class GetCommissionPlansQueryHandler(IApplicationDbContext db)
                 plan.BinaryPairing.FixedPairAmount,
                 plan.BinaryPairing.CarryForwardEnabled,
                 plan.QualificationRulesJson,
-                plan.CapRulesJson
+                plan.CapRulesJson,
+                plan.ConfigurationVersion
             ))
             .ToListAsync(cancellationToken);
 }

@@ -21,6 +21,7 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
         builder.UseSetting("BackgroundJobs:Outbox:Enabled", "false");
         builder.UseSetting("BackgroundJobs:Durable:Enabled", "false");
         builder.UseSetting("Notifications:Delivery:Enabled", "false");
+        builder.UseSetting("RateLimiting:Authentication:PermitLimit", "10000");
         builder.UseSetting(
             $"ConnectionStrings:{modular_mlm.Shared.Services.Database}",
             connectionString

@@ -8,6 +8,7 @@ public sealed class CommissionPlan : OrganizationEntity
 
     public string Name { get; private set; } = string.Empty;
     public int Version { get; private set; }
+    public long ConfigurationVersion { get; private set; }
     public CommissionPlanStatus Status { get; private set; }
     public DateTimeOffset EffectiveFrom { get; private set; }
     public DateTimeOffset? EffectiveTo { get; private set; }
@@ -30,6 +31,7 @@ public sealed class CommissionPlan : OrganizationEntity
             OrganizationId = organizationId,
             Name = name.Trim(),
             Version = version,
+            ConfigurationVersion = 0,
             EffectiveFrom = effectiveFrom,
             Status = CommissionPlanStatus.Draft,
             BinaryPairing = BinaryPairingRule.Disabled(),
@@ -62,10 +64,17 @@ public sealed class CommissionPlan : OrganizationEntity
         CapRulesJson = RequireJson(rulesJson, "Cap rules");
     }
 
+    public void AdvanceConfigurationVersion()
+    {
+        EnsureDraft();
+        ConfigurationVersion = checked(ConfigurationVersion + 1);
+    }
+
     public void Publish()
     {
         EnsureDraft();
         Status = CommissionPlanStatus.Active;
+        ConfigurationVersion = checked(ConfigurationVersion + 1);
     }
 
     public void Retire(DateTimeOffset effectiveTo)
@@ -76,6 +85,7 @@ public sealed class CommissionPlan : OrganizationEntity
             );
         EffectiveTo = effectiveTo;
         Status = CommissionPlanStatus.Retired;
+        ConfigurationVersion = checked(ConfigurationVersion + 1);
     }
 
     private void EnsureDraft()

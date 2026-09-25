@@ -18,6 +18,9 @@ public static class ApiRouteVersioningPolicy
                         context.Response.Headers.TryAdd(SupportedVersionsHeader, CurrentVersion);
                         return Task.CompletedTask;
                     });
+
+                    if (!await RequestApiVersioning.ValidateAsync(context))
+                        return;
                 }
 
                 await next(context);

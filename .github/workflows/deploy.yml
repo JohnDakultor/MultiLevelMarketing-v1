@@ -1,0 +1,111 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Azure deployment environment
+        required: true
+        default: uat
+        type: choice
+        options: [development, uat, production]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: 10.0.x
+  NODE_VERSION: 22.13.x
+  ASPIRE_CLI_VERSION: 13.2.0
+  DEPLOYMENT_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  Azure__Location: ${{ vars.AZURE_LOCATION }}
+  Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: dotnet restore modular_mlm.slnx
+      - run: dotnet build modular_mlm.slnx --configuration Release --no-restore
+      - run: dotnet test modular_mlm.slnx --configuration Release --no-build
+      - run: npm ci
+        working-directory: web
+      - run: npm run release:check
+        working-directory: web
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Sign in to Azure using workload identity federation
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Aspire CLI
+        run: dotnet tool install --global Aspire.Cli --version "$ASPIRE_CLI_VERSION"
+      - name: Restore Aspire deployment state
+        uses: actions/cache@v4
+        with:
+          path: ~/.aspire/deployments
+          key: aspire-${{ env.DEPLOYMENT_ENVIRONMENT }}-${{ hashFiles('src/AppHost/AppHost.csproj') }}-${{ github.ref_name }}
+          restore-keys: |
+            aspire-${{ env.DEPLOYMENT_ENVIRONMENT }}-${{ hashFiles('src/AppHost/AppHost.csproj') }}-
+            aspire-${{ env.DEPLOYMENT_ENVIRONMENT }}-
+      - name: Deploy application and infrastructure
+        run: aspire deploy --apphost src/AppHost/AppHost.csproj --environment "$DEPLOYMENT_ENVIRONMENT" --non-interactive
+
+  migrate:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+    steps:
+      - name: Sign in to Azure using workload identity federation
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Run EF Core migration job
+        shell: bash
+        run: |
+          job_name="$(az resource list --resource-group "$AZURE_RESOURCE_GROUP" --resource-type Microsoft.App/jobs --tag aspire-resource-name=database-migrator --query '[0].name' --output tsv)"
+          if [[ -z "$job_name" ]]; then
+            echo 'The database-migrator Container Apps job was not found.' >&2
+            exit 1
+          fi
+          execution="$(az containerapp job start --name "$job_name" --resource-group "$AZURE_RESOURCE_GROUP" --query name --output tsv)"
+          for attempt in {1..60}; do
+            status="$(az containerapp job execution show --name "$job_name" --job-execution-name "$execution" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.status --output tsv)"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded) echo "Migration execution failed with status: $status" >&2; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo 'Migration execution did not finish within 10 minutes.' >&2
+          exit 1

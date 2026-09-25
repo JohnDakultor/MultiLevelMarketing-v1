@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 import { frontendSecurityHeaders } from "@modular-mlm/tooling/security-headers";
 
-const backendOrigin = (
-  process.env.BACKEND_API_BASE_URL ?? "http://localhost:5154"
-).replace(/\/$/, "");
-
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -17,11 +13,6 @@ const nextConfig: NextConfig = {
     "@modular-mlm/notifications",
     "@modular-mlm/organization-context",
   ],
-  async rewrites() {
-    return [
-      { source: "/api/:path*", destination: `${backendOrigin}/api/:path*` },
-    ];
-  },
   async headers() {
     const security = frontendSecurityHeaders();
     const privateResponse = [

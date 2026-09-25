@@ -27,6 +27,31 @@ dotnet test
 
 The domain stays independent of HTTP, Entity Framework, payment providers, and deployment infrastructure.
 
+## Azure Blob object storage
+
+The Aspire AppHost provisions an Azure Storage account and the
+`marketplace-assets` blob container. Locally, the same resource runs through a
+persistent Azurite container. The Web API receives the container connection and
+uses managed identity after deployment to Azure.
+
+Set a public asset origin separately in each deployed environment:
+
+```text
+ObjectStorage__AzureBlob__Enabled=true
+ObjectStorage__AzureBlob__PublicBaseUrl=https://<public-asset-host>/<container-or-path>
+```
+
+`PublicBaseUrl` can be an Azure Front Door/CDN address or the blob-container URL
+when anonymous blob access is intentionally enabled. Keep the container private
+when using a private CDN origin. The Web API's managed identity requires the
+`Storage Blob Data Contributor` role; Aspire assigns the storage data role when
+the referenced resource is deployed.
+
+When deploying the Web project without its AppHost, provide a connection named
+`marketplace-assets` using the Aspire Azure Blob client configuration. Prefer a
+service URI plus managed identity in Azure; use a connection string only for
+local development.
+
 ## Local integration secrets
 
 The Web project uses .NET user-secrets. Keep PayMongo and SMTP credentials out of tracked

@@ -1,0 +1,18 @@
+{
+  "name": "@modular-mlm/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./common": "./src/common.ts",
+    "./enums": "./src/enums.ts",
+    "./identity": "./src/identity.ts",
+    "./organizations": "./src/organizations.ts",
+    "./commerce": "./src/commerce.ts",
+    "./reporting": "./src/reporting.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --pretty false"
+  }
+}

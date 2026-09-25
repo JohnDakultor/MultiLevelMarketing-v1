@@ -1,0 +1,21 @@
+{
+  "name": "@modular-mlm/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@modular-mlm/contracts": "*",
+    "react": "^19.2.8"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8"
+  }
+}

@@ -56,6 +56,12 @@ const navigation: readonly AdminNavigationItem[] = [
     feature: "agentProgramEnabled",
   },
   {
+    href: "/finance",
+    label: "Wallets & commissions",
+    capability: Capabilities.organizationAdministration,
+    feature: "walletEnabled",
+  },
+  {
     href: "/payouts",
     label: "Payouts",
     capability: Capabilities.organizationAdministration,

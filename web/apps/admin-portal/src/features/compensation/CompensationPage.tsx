@@ -16,6 +16,7 @@ import {
   useConfirmation,
 } from "@modular-mlm/design-system";
 import { useState, type FormEvent } from "react";
+import type { CommissionPlanDto } from "@modular-mlm/contracts";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, date, useAdminScope } from "../shared/AdminState";
 
@@ -29,6 +30,7 @@ export function CompensationPage() {
     scope.isReady,
   );
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState<CommissionPlanDto | null>(null);
   if (plans.isLoading) return <Loading />;
   if (plans.error) return <Failure error={plans.error} retry={plans.reload} />;
   const action = async (
@@ -118,6 +120,9 @@ export function CompensationPage() {
               header: "Actions",
               cell: (row) => (
                 <>
+                  {row.status === 0 && (
+                    <><Button variant="secondary" onClick={() => setEditing(row)}>Edit</Button>{" "}</>
+                  )}
                   <Button
                     onClick={() => void action(row.id, row.name, "publish")}
                   >
@@ -135,7 +140,62 @@ export function CompensationPage() {
           ]}
         />
       )}
+      {editing && (
+        <EditPlan
+          plan={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setMessage("Draft compensation plan updated.");
+            plans.reload();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditPlan({ plan, onClose, onSaved }: { plan: CommissionPlanDto; onClose(): void; onSaved(): void }) {
+  const api = useApiClient();
+  const scope = useAdminScope();
+  const feedback = useFormSubmission();
+  return (
+    <Card>
+      <div className="action-row"><h2>Edit {plan.name}</h2><Button variant="ghost" onClick={onClose}>Close</Button></div>
+      <form className="form-grid" onSubmit={async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const saved = await feedback.submit(() => adminApi.updatePlan(api, scope.organizationId, plan.id, {
+          directSalesEnabled: data.get("directSalesEnabled") === "on",
+          directSalesRate: Number(data.get("directSalesRate")),
+          binaryPairingEnabled: data.get("binaryPairingEnabled") === "on",
+          pairingCalculationType: Number(data.get("pairingCalculationType")),
+          binaryPairingRate: Number(data.get("binaryPairingRate")) || null,
+          pairUnitBv: Number(data.get("pairUnitBv")) || null,
+          fixedPairAmount: Number(data.get("fixedPairAmount")) || null,
+          processingFrequency: Number(data.get("processingFrequency")),
+          carryForwardEnabled: data.get("carryForwardEnabled") === "on",
+          qualificationRulesJson: String(data.get("qualificationRulesJson")),
+          capRulesJson: String(data.get("capRulesJson")),
+          expectedConfigurationVersion: plan.configurationVersion,
+        }), "Commission plan updated.");
+        if (saved) onSaved();
+      }}>
+        <FormErrorSummary errors={feedback.fieldErrors} generalErrors={feedback.formErrors} id={feedback.errorSummaryId} />
+        <label><input name="directSalesEnabled" type="checkbox" defaultChecked={plan.directSalesRate > 0} /> Enable direct sales</label>
+        <InputField name="directSalesRate" label="Direct sales rate" type="number" min={0} step="0.000001" defaultValue={plan.directSalesRate} required />
+        <label><input name="binaryPairingEnabled" type="checkbox" defaultChecked={plan.binaryPairingEnabled} /> Enable binary pairing</label>
+        <InputField name="pairingCalculationType" label="Pairing calculation type" type="number" min={0} defaultValue={plan.pairingCalculationType} required />
+        <InputField name="binaryPairingRate" label="Binary pairing rate" type="number" min={0} step="0.000001" defaultValue={plan.binaryPairingRate ?? ""} />
+        <InputField name="pairUnitBv" label="Pair unit BV" type="number" min={0} step="0.01" defaultValue={plan.pairUnitBv ?? ""} />
+        <InputField name="fixedPairAmount" label="Fixed pair amount" type="number" min={0} step="0.01" defaultValue={plan.fixedPairAmount ?? ""} />
+        <InputField name="processingFrequency" label="Processing frequency" type="number" min={0} defaultValue={plan.processingFrequency} required />
+        <label><input name="carryForwardEnabled" type="checkbox" defaultChecked={plan.carryForwardEnabled} /> Carry forward</label>
+        <InputField name="qualificationRulesJson" label="Qualification rules JSON" defaultValue={plan.qualificationRulesJson} required />
+        <InputField name="capRulesJson" label="Cap rules JSON" defaultValue={plan.capRulesJson} required />
+        <Button type="submit" isLoading={feedback.isSubmitting}>Save draft</Button>
+      </form>
+    </Card>
   );
 }
 function CreatePlan({ onSaved }: { onSaved(): void }) {

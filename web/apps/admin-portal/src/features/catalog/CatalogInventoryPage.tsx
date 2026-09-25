@@ -68,6 +68,7 @@ export function CatalogInventoryPage() {
         description="Manage publication and stock using current backend versions."
       />
       {message && <Alert title={message} tone="info" />}
+      <CategoryAdministration />
       <CreateProductForm
         onCreated={() => refresh("Product created as a draft.")}
       />
@@ -267,6 +268,78 @@ export function CatalogInventoryPage() {
         />
       )}
     </div>
+  );
+}
+
+function CategoryAdministration() {
+  const api = useApiClient();
+  const scope = useAdminScope();
+  const feedback = useFormSubmission();
+  const { confirm, prompt } = useConfirmation();
+  const categories = useApiQuery(
+    (client, signal) => adminApi.categories(client, scope.organizationId, signal),
+    [scope.organizationId],
+    scope.isReady,
+  );
+  return (
+    <Card>
+      <h2>Categories</h2>
+      <form
+        className="inline-form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const data = new FormData(form);
+          const saved = await feedback.submit(
+            () => adminApi.createCategory(
+              api,
+              scope.organizationId,
+              String(data.get("name")),
+              String(data.get("slug")),
+            ),
+            "Category created.",
+          );
+          if (saved) {
+            form.reset();
+            categories.reload();
+          }
+        }}
+      >
+        <FormErrorSummary errors={feedback.fieldErrors} generalErrors={feedback.formErrors} id={feedback.errorSummaryId} />
+        <InputField name="name" label="Category name" required />
+        <InputField name="slug" label="Slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required />
+        <Button type="submit" isLoading={feedback.isSubmitting}>Create category</Button>
+      </form>
+      {categories.error ? <Failure error={categories.error} retry={categories.reload} /> : (
+        <DataTable
+          caption="Category administration"
+          rows={categories.data?.items ?? []}
+          rowKey={(row) => row.id}
+          columns={[
+            { key: "name", header: "Name", cell: (row) => row.name },
+            { key: "slug", header: "Slug", cell: (row) => row.slug },
+            { key: "products", header: "Products", cell: (row) => row.productCount },
+            { key: "status", header: "Status", cell: (row) => row.isActive ? "Active" : "Archived" },
+            { key: "actions", header: "", cell: (row) => (
+              <div className="button-cluster">
+                <Button variant="secondary" onClick={async () => {
+                  const name = await prompt({ title: "Rename category", description: `Choose a new name for ${row.name}.`, label: "Category name", submitLabel: "Rename", maxLength: 200 });
+                  if (!name) return;
+                  await adminApi.renameCategory(api, scope.organizationId, row.id, name);
+                  categories.reload();
+                }}>Rename</Button>
+                <Button variant={row.isActive ? "danger" : "secondary"} onClick={async () => {
+                  const action = row.isActive ? "archive" : "activate";
+                  if (!(await confirm({ title: `${action} category?`, description: `${action} ${row.name}?`, confirmLabel: action }))) return;
+                  await adminApi.categoryAction(api, scope.organizationId, row.id, action);
+                  categories.reload();
+                }}>{row.isActive ? "Archive" : "Activate"}</Button>
+              </div>
+            )},
+          ]}
+        />
+      )}
+    </Card>
   );
 }
 

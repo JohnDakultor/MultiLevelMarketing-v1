@@ -18,5 +18,6 @@ public sealed record CommissionPlanDto(
     decimal? FixedPairAmount,
     bool CarryForwardEnabled,
     string QualificationRulesJson,
-    string CapRulesJson
+    string CapRulesJson,
+    long ConfigurationVersion
 );
