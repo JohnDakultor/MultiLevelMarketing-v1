@@ -7,11 +7,12 @@ import {
 } from "@modular-mlm/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { adminPortalEnvironment } from "../lib/environment";
+import { useAdminStorefrontUrl } from "../app/providers";
 
 export function AdminSignInPage() {
   const router = useRouter();
   const authentication = useAuthentication();
+  const storefrontUrl = useAdminStorefrontUrl();
 
   useEffect(() => {
     if (authentication.user) router.replace(readReturnPath());
@@ -25,8 +26,7 @@ export function AdminSignInPage() {
         onSuccess={() => router.replace(readReturnPath())}
       />
       <p>
-        Shopping instead?{" "}
-        <a href={adminPortalEnvironment().storefrontUrl}>Open the storefront</a>
+        Shopping instead? <a href={storefrontUrl}>Open the storefront</a>
       </p>
     </div>
   );

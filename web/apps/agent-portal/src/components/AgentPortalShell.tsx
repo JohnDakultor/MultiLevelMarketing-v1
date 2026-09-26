@@ -16,7 +16,7 @@ import {
 import { useOrganization } from "@modular-mlm/organization-context";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { agentPortalEnvironment } from "../lib/environment";
+import { useAgentStorefrontUrl } from "../app/providers";
 import { agentNavigation } from "../navigation/agentNavigation";
 import { agentApi } from "../features/api/agentApi";
 
@@ -137,7 +137,7 @@ function AgentApplicationAccessState({
   isLoading: boolean;
   hasNoApplication: boolean;
 }) {
-  const { storefrontUrl } = agentPortalEnvironment();
+  const storefrontUrl = useAgentStorefrontUrl();
   const applicationUrl = `${storefrontUrl}/account/agent-application`;
   if (isLoading) return <PortalLoading label="Checking Agent application" />;
 
@@ -224,7 +224,7 @@ function AccessDenied({
   actionHref?: string;
   actionLabel?: string;
 }) {
-  const { storefrontUrl } = agentPortalEnvironment();
+  const storefrontUrl = useAgentStorefrontUrl();
   return (
     <PortalState>
       <PageHeader

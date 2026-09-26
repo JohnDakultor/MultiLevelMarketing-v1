@@ -14,9 +14,11 @@ import { storefrontEnvironment } from "../lib/environment";
 
 export function StorefrontProviders({
   hostName,
+  organizationSlug,
   children,
 }: {
   hostName: string;
+  organizationSlug?: string;
   children: ReactNode;
 }) {
   const environment = storefrontEnvironment();
@@ -44,7 +46,9 @@ export function StorefrontProviders({
             <OrganizationProvider
               api={api}
               hostName={hostName}
-              developmentSlug={environment.developmentOrganizationSlug}
+              organizationSlug={
+                organizationSlug ?? environment.developmentOrganizationSlug
+              }
             >
               {children}
             </OrganizationProvider>

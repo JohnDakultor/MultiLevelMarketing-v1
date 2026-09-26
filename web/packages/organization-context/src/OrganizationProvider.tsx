@@ -23,12 +23,12 @@ const OrganizationContext = createContext<OrganizationState | null>(null);
 export function OrganizationProvider({
   api,
   hostName,
-  developmentSlug,
+  organizationSlug,
   children,
 }: {
   api: ApiClient;
   hostName: string;
-  developmentSlug?: string;
+  organizationSlug?: string;
   children: ReactNode;
 }) {
   const [organization, setOrganization] =
@@ -41,7 +41,7 @@ export function OrganizationProvider({
 
     void resolveOrganization(api, {
       hostName,
-      developmentSlug,
+      organizationSlug,
       signal: controller.signal,
     })
       .then((resolved) => {
@@ -62,7 +62,7 @@ export function OrganizationProvider({
       });
 
     return () => controller.abort();
-  }, [api, developmentSlug, hostName]);
+  }, [api, hostName, organizationSlug]);
 
   const value = useMemo(
     () => ({ organization, isLoading, error }),

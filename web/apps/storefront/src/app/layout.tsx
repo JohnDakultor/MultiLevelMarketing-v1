@@ -27,7 +27,13 @@ export default async function StorefrontLayout({
   return (
     <html lang="en">
       <body>
-        <StorefrontProviders hostName={hostName}>
+        <StorefrontProviders
+          hostName={hostName}
+          organizationSlug={
+            process.env.ORGANIZATION_SLUG?.trim() ||
+            process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim()
+          }
+        >
           <StorefrontShell>{children}</StorefrontShell>
         </StorefrontProviders>
       </body>

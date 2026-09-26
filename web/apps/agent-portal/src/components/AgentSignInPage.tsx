@@ -7,12 +7,12 @@ import {
 } from "@modular-mlm/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { agentPortalEnvironment } from "../lib/environment";
+import { useAgentStorefrontUrl } from "../app/providers";
 
 export function AgentSignInPage() {
   const router = useRouter();
   const authentication = useAuthentication();
-  const storefrontUrl = agentPortalEnvironment().storefrontUrl;
+  const storefrontUrl = useAgentStorefrontUrl();
 
   useEffect(() => {
     if (authentication.user) router.replace(readReturnPath());

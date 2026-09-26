@@ -2,10 +2,12 @@ using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using modular_mlm.Infrastructure.Data;
+using modular_mlm.Infrastructure.Identity;
 using modular_mlm.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -20,6 +22,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString)
 );
+builder
+    .Services.AddIdentityCore<ApplicationUser>()
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<ApplicationDbContextInitialiser>();
 builder.AddAzureBlobContainerClient(Services.DataProtectionContainer);
 
 using var host = builder.Build();
@@ -27,6 +35,7 @@ await using var scope = host.Services.CreateAsyncScope();
 
 var database = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 await database.Database.MigrateAsync();
+await scope.ServiceProvider.GetRequiredService<ApplicationDbContextInitialiser>().InitialiseAsync();
 
 var keyContainer = scope.ServiceProvider.GetRequiredService<BlobContainerClient>();
 var keyBlob = keyContainer.GetBlobClient(Services.DataProtectionKeyBlob);
@@ -48,4 +57,6 @@ catch (RequestFailedException exception) when (exception.Status == 409 || except
     // Another migration execution already initialized the shared key-ring blob.
 }
 
-Console.WriteLine("Database migrations and shared Data Protection storage are ready.");
+Console.WriteLine(
+    "Database migrations, bootstrap identity/organization data, and shared Data Protection storage are ready."
+);

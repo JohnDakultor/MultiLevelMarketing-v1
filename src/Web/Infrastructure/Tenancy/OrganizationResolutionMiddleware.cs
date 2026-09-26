@@ -21,7 +21,7 @@ public sealed class OrganizationResolutionMiddleware(RequestDelegate next)
         }
 
         var resolved = await sender.Send(
-            new ResolveOrganizationByHostQuery(hostName),
+            new ResolveOrganizationByHostQuery(hostName, settings.FallbackOrganizationSlug),
             httpContext.RequestAborted
         );
         if (resolved is not null)

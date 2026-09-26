@@ -2,5 +2,5 @@ using modular_mlm.Application.Organizations.Queries.ResolveOrganizationByHost.Mo
 
 namespace modular_mlm.Application.Organizations.Queries.ResolveOrganizationByHost;
 
-public sealed record ResolveOrganizationByHostQuery(string HostName)
+public sealed record ResolveOrganizationByHostQuery(string HostName, string? FallbackSlug = null)
     : IRequest<ResolvedOrganizationDto?>;

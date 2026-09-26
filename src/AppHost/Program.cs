@@ -1,6 +1,14 @@
+using Aspire.Hosting.ApplicationModel;
 using modular_mlm.Shared;
 
 var builder = DistributedApplication.CreateBuilder(args);
+var organizationSlug = builder.Configuration["ORGANIZATION_SLUG"]?.Trim().ToLowerInvariant();
+if (string.IsNullOrWhiteSpace(organizationSlug))
+    organizationSlug = "default";
+
+var administratorEmail = builder.Configuration["SEED_ADMINISTRATOR_EMAIL"]?.Trim();
+if (string.IsNullOrWhiteSpace(administratorEmail))
+    administratorEmail = "administrator@localhost";
 
 builder.AddAzureContainerAppEnvironment("aca-env");
 
@@ -29,7 +37,22 @@ var databaseMigrator = builder
     .WaitFor(databaseServer)
     .WithReference(dataProtectionStorage)
     .WaitFor(dataProtectionStorage)
+    .WithEnvironment("Seed__OrganizationSlug", organizationSlug)
+    .WithEnvironment("Seed__AdministratorEmail", administratorEmail)
     .PublishAsAzureContainerAppJob();
+
+if (
+    !string.IsNullOrWhiteSpace(
+        builder.Configuration["Parameters:seed-administrator-password"]
+    )
+)
+{
+    var administratorPassword = builder.AddParameter(
+        "seed-administrator-password",
+        secret: true
+    );
+    databaseMigrator.WithEnvironment("Seed__AdministratorPassword", administratorPassword);
+}
 
 var web = builder
     .AddProject<Projects.Web>(Services.WebApi)
@@ -42,6 +65,7 @@ var web = builder
     .WaitForCompletion(databaseMigrator)
     .WithEnvironment("ObjectStorage__AzureBlob__Enabled", "true")
     .WithEnvironment("DataProtection__AzureBlob__Enabled", "true")
+    .WithEnvironment("OrganizationResolution__FallbackOrganizationSlug", organizationSlug)
     .WithExternalHttpEndpoints()
     .WithAspNetCoreEnvironment()
     .WithUrlForEndpoint(
@@ -59,18 +83,23 @@ if (builder.ExecutionContext.IsPublishMode)
     web.WithReference(keyVault).WaitFor(keyVault);
 }
 
-AddFrontend(Services.Storefront, "apps/storefront/Dockerfile");
-AddFrontend(Services.AgentPortal, "apps/agent-portal/Dockerfile");
-AddFrontend(Services.AdminPortal, "apps/admin-portal/Dockerfile");
+var storefront = AddFrontend(Services.Storefront, "apps/storefront/Dockerfile");
+AddFrontend(Services.AgentPortal, "apps/agent-portal/Dockerfile")
+    .WithEnvironment("STOREFRONT_URL", storefront.GetEndpoint("http"))
+    .WaitFor(storefront);
+AddFrontend(Services.AdminPortal, "apps/admin-portal/Dockerfile")
+    .WithEnvironment("STOREFRONT_URL", storefront.GetEndpoint("http"))
+    .WaitFor(storefront);
 
-void AddFrontend(string name, string dockerfilePath)
+IResourceBuilder<ContainerResource> AddFrontend(string name, string dockerfilePath)
 {
-    builder
+    return builder
         .AddDockerfile(name, "../../web", dockerfilePath)
         .WithHttpEndpoint(targetPort: 8080, name: "http")
         .WithEnvironment("PORT", "8080")
         .WithEnvironment("HOSTNAME", "0.0.0.0")
         .WithEnvironment("BACKEND_API_BASE_URL", web.GetEndpoint("http"))
+        .WithEnvironment("ORGANIZATION_SLUG", organizationSlug)
         .WithReference(web)
         .WaitFor(web)
         .WithExternalHttpEndpoints();

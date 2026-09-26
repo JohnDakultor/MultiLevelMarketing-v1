@@ -5,6 +5,7 @@ import "@modular-mlm/design-system/styles.css";
 import "./styles.css";
 import { AdminPortalProviders } from "./providers";
 import { AdminPortalShell } from "../components/AdminPortalShell";
+import { storefrontUrl } from "../lib/serverEnvironment";
 
 export const metadata: Metadata = {
   title: "Admin Portal",
@@ -26,7 +27,14 @@ export default async function AdminPortalLayout({
   return (
     <html lang="en">
       <body>
-        <AdminPortalProviders hostName={hostName}>
+        <AdminPortalProviders
+          hostName={hostName}
+          organizationSlug={
+            process.env.ORGANIZATION_SLUG?.trim() ||
+            process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim()
+          }
+          storefrontUrl={storefrontUrl()}
+        >
           <AdminPortalShell>{children}</AdminPortalShell>
         </AdminPortalProviders>
       </body>

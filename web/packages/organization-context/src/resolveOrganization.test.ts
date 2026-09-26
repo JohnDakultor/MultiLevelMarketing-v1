@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  hasDevelopmentSlug,
+  hasConfiguredSlug,
   isDevelopmentHost,
   normalizeHostName,
 } from "./resolveOrganization";
@@ -16,19 +16,19 @@ test("allows slug fallback only for loopback development hosts", () => {
   assert.equal(isDevelopmentHost("greenzero.example"), false);
 });
 
-test("uses the configured slug directly on localhost", () => {
+test("uses an explicitly configured runtime slug on any host", () => {
   assert.equal(
-    hasDevelopmentSlug({
+    hasConfiguredSlug({
       hostName: "localhost:3000",
-      developmentSlug: "greenzero",
+      organizationSlug: "greenzero",
     }),
     true,
   );
   assert.equal(
-    hasDevelopmentSlug({
+    hasConfiguredSlug({
       hostName: "greenzero.example",
-      developmentSlug: "greenzero",
+      organizationSlug: "greenzero",
     }),
-    false,
+    true,
   );
 });

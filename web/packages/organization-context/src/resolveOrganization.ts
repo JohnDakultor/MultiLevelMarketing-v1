@@ -3,7 +3,7 @@ import type { PublicOrganizationConfigDto } from "@modular-mlm/contracts";
 
 export interface OrganizationResolutionInput {
   hostName: string;
-  developmentSlug?: string;
+  organizationSlug?: string;
   signal?: AbortSignal;
 }
 
@@ -11,7 +11,7 @@ export async function resolveOrganization(
   api: ApiClient,
   input: OrganizationResolutionInput,
 ): Promise<PublicOrganizationConfigDto> {
-  if (hasDevelopmentSlug(input)) return resolveDevelopmentSlug(api, input);
+  if (hasConfiguredSlug(input)) return resolveConfiguredSlug(api, input);
 
   try {
     return await api.request<PublicOrganizationConfigDto>(
@@ -23,27 +23,23 @@ export async function resolveOrganization(
       },
     );
   } catch (error) {
-    if (!shouldUseDevelopmentFallback(error, input)) throw error;
-    return resolveDevelopmentSlug(api, input);
+    if (!shouldUseConfiguredFallback(error, input)) throw error;
+    return resolveConfiguredSlug(api, input);
   }
 }
 
-function resolveDevelopmentSlug(
+function resolveConfiguredSlug(
   api: ApiClient,
   input: OrganizationResolutionInput,
 ): Promise<PublicOrganizationConfigDto> {
   return api.request<PublicOrganizationConfigDto>(
-    `/api/organizations/${encodeURIComponent(input.developmentSlug!.trim())}/public-config`,
+    `/api/organizations/${encodeURIComponent(input.organizationSlug!.trim())}/public-config`,
     { anonymous: true, signal: input.signal },
   );
 }
 
-export function hasDevelopmentSlug(
-  input: OrganizationResolutionInput,
-): boolean {
-  return (
-    isDevelopmentHost(input.hostName) && Boolean(input.developmentSlug?.trim())
-  );
+export function hasConfiguredSlug(input: OrganizationResolutionInput): boolean {
+  return Boolean(input.organizationSlug?.trim());
 }
 
 export function normalizeHostName(hostName: string): string {
@@ -60,13 +56,13 @@ export function isDevelopmentHost(hostName: string): boolean {
   );
 }
 
-function shouldUseDevelopmentFallback(
+function shouldUseConfiguredFallback(
   error: unknown,
   input: OrganizationResolutionInput,
 ): boolean {
   return (
     error instanceof ApiError &&
     error.status === 404 &&
-    hasDevelopmentSlug(input)
+    hasConfiguredSlug(input)
   );
 }

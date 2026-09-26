@@ -13,6 +13,11 @@ public sealed class ResolveOrganizationByHostQueryValidator
             .MaximumLength(OrganizationDomain.MaximumHostNameLength)
             .Must(BeValidHostName)
             .WithMessage("A valid public DNS hostname is required.");
+
+        RuleFor(query => query.FallbackSlug)
+            .MaximumLength(200)
+            .Matches("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+            .When(query => !string.IsNullOrWhiteSpace(query.FallbackSlug));
     }
 
     private static bool BeValidHostName(string hostName)

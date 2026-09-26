@@ -17,7 +17,7 @@ import {
 import { useOrganization } from "@modular-mlm/organization-context";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { adminPortalEnvironment } from "../lib/environment";
+import { useAdminStorefrontUrl } from "../app/providers";
 import { adminNavigation } from "../navigation/adminNavigation";
 
 export function AdminPortalShell({ children }: { children: ReactNode }) {
@@ -155,6 +155,7 @@ function RedirectToSignIn({ returnTo }: { returnTo: string }) {
 }
 
 function AccessDenied({ description }: { description: string }) {
+  const storefrontUrl = useAdminStorefrontUrl();
   return (
     <PortalState>
       <PageHeader
@@ -167,10 +168,7 @@ function AccessDenied({ description }: { description: string }) {
           You are authenticated, but you do not have permission to administer
           this organization.
         </p>
-        <a
-          className="portal-link"
-          href={adminPortalEnvironment().storefrontUrl}
-        >
+        <a className="portal-link" href={storefrontUrl}>
           Return to the storefront
         </a>
       </Card>

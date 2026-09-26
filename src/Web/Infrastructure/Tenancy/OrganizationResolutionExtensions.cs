@@ -6,6 +6,7 @@ public sealed class OrganizationResolutionOptions
 
     public bool Enabled { get; init; } = true;
     public bool RequireKnownHost { get; init; } = true;
+    public string? FallbackOrganizationSlug { get; init; }
     public string[] DevelopmentHosts { get; init; } = ["localhost", "127.0.0.1", "::1"];
     public string[] BypassPathPrefixes { get; init; } =
     [
@@ -14,6 +15,7 @@ public sealed class OrganizationResolutionOptions
         "/openapi",
         "/scalar",
         "/api/Users",
+        "/api/me",
         "/api/administrator-invitations",
         "/api/organizations",
         "/api/paymongo",
@@ -33,6 +35,15 @@ public static class OrganizationResolutionExtensions
             .Validate(
                 options => options.DevelopmentHosts.All(host => !string.IsNullOrWhiteSpace(host)),
                 "Development hosts cannot contain blank values."
+            )
+            .Validate(
+                options =>
+                    string.IsNullOrWhiteSpace(options.FallbackOrganizationSlug)
+                    || System.Text.RegularExpressions.Regex.IsMatch(
+                        options.FallbackOrganizationSlug,
+                        "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                    ),
+                "The fallback organization slug is invalid."
             )
             .ValidateOnStart();
         services.AddScoped<ResolvedOrganizationContext>();

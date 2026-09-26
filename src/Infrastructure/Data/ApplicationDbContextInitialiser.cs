@@ -49,7 +49,18 @@ public sealed class ApplicationDbContextInitialiser(
             if (!await roles.RoleExistsAsync(roleName))
                 await roles.CreateAsync(new IdentityRole(roleName));
 
-        const string email = "administrator@localhost";
+        var email = configuration["Seed:AdministratorEmail"]?.Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            email = "administrator@localhost";
+
+        var organizationSlug = configuration["Seed:OrganizationSlug"]?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(organizationSlug))
+            organizationSlug = "default";
+
+        var organizationName = configuration["Seed:OrganizationName"]?.Trim();
+        if (string.IsNullOrWhiteSpace(organizationName))
+            organizationName = "Modular Marketplace";
+
         var administratorPassword = configuration["Seed:AdministratorPassword"];
         var admin = await users.FindByEmailAsync(email);
         if (admin is null && !string.IsNullOrWhiteSpace(administratorPassword))
@@ -95,15 +106,24 @@ public sealed class ApplicationDbContextInitialiser(
         if (admin is not null && !await users.IsInRoleAsync(admin, Roles.PlatformAdministrator))
             await users.AddToRoleAsync(admin, Roles.PlatformAdministrator);
 
-        if (!await db.Organizations.AnyAsync())
+        var bootstrapOrganization = await db.Organizations.SingleOrDefaultAsync(organization =>
+            organization.Slug == organizationSlug
+        );
+        if (bootstrapOrganization is null)
         {
-            var organization = Organization.Create("Modular Marketplace", "default", "USD");
-            organization.UpdateBranding(
-                BrandingSettings.Create("Modular Marketplace", developmentSupportEmail)
+            bootstrapOrganization = Organization.Create(
+                organizationName,
+                organizationSlug,
+                "USD"
             );
-            organization.PublishBranding(timeProvider.GetUtcNow());
-            db.Organizations.Add(organization);
-            db.Categories.Add(Category.Create(organization.Id, "General", "general"));
+            bootstrapOrganization.UpdateBranding(
+                BrandingSettings.Create(organizationName, developmentSupportEmail)
+            );
+            bootstrapOrganization.PublishBranding(timeProvider.GetUtcNow());
+            db.Organizations.Add(bootstrapOrganization);
+            db.Categories.Add(
+                Category.Create(bootstrapOrganization.Id, "General", "general")
+            );
             await db.SaveChangesAsync();
         }
 
@@ -149,7 +169,7 @@ public sealed class ApplicationDbContextInitialiser(
         if (admin is not null && admin.OrganizationId is null)
         {
             var defaultOrganizationId = await db
-                .Organizations.Where(organization => organization.Slug == "default")
+                .Organizations.Where(organization => organization.Slug == organizationSlug)
                 .Select(organization => organization.Id)
                 .SingleOrDefaultAsync();
 

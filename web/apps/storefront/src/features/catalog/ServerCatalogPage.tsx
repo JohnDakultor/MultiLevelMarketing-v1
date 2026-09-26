@@ -38,8 +38,10 @@ export async function ServerCatalogPage() {
 async function resolveOrganization(
   hostName: string,
 ): Promise<PublicOrganizationConfigDto | null> {
-  const slug = process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim();
-  if (slug && isDevelopmentHost(hostName))
+  const slug =
+    process.env.ORGANIZATION_SLUG?.trim() ||
+    process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim();
+  if (slug)
     return getPublic<PublicOrganizationConfigDto>(
       `/api/organizations/${encodeURIComponent(slug)}/public-config`,
     );
@@ -53,10 +55,7 @@ async function resolveOrganization(
   );
   if (byHost.ok) return (await byHost.json()) as PublicOrganizationConfigDto;
 
-  if (!slug || !isDevelopmentHost(hostName)) return null;
-  return getPublic<PublicOrganizationConfigDto>(
-    `/api/organizations/${encodeURIComponent(slug)}/public-config`,
-  );
+  return null;
 }
 
 async function getPublic<T>(path: string): Promise<T | null> {
@@ -64,13 +63,4 @@ async function getPublic<T>(path: string): Promise<T | null> {
     next: { revalidate: 60 },
   });
   return response.ok ? ((await response.json()) as T) : null;
-}
-
-function isDevelopmentHost(hostName: string): boolean {
-  const normalized = hostName.toLowerCase().split(":")[0];
-  return (
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized?.endsWith(".localhost") === true
-  );
 }

@@ -1,7 +1,6 @@
 export interface AdminPortalEnvironment {
   apiBaseUrl: string;
   developmentOrganizationSlug?: string;
-  storefrontUrl: string;
 }
 
 export function adminPortalEnvironment(): AdminPortalEnvironment {
@@ -10,9 +9,6 @@ export function adminPortalEnvironment(): AdminPortalEnvironment {
     developmentOrganizationSlug:
       process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim() ||
       undefined,
-    storefrontUrl:
-      normalizeOptionalUrl(process.env.NEXT_PUBLIC_STOREFRONT_URL) ||
-      "http://localhost:3000",
   };
 }
 

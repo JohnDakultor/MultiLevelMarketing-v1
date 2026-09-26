@@ -5,6 +5,7 @@ import "@modular-mlm/design-system/styles.css";
 import "./styles.css";
 import { AgentPortalProviders } from "./providers";
 import { AgentPortalShell } from "../components/AgentPortalShell";
+import { storefrontUrl } from "../lib/serverEnvironment";
 
 export const metadata: Metadata = {
   title: "Agent Portal",
@@ -26,7 +27,14 @@ export default async function AgentPortalLayout({
   return (
     <html lang="en">
       <body>
-        <AgentPortalProviders hostName={hostName}>
+        <AgentPortalProviders
+          hostName={hostName}
+          organizationSlug={
+            process.env.ORGANIZATION_SLUG?.trim() ||
+            process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim()
+          }
+          storefrontUrl={storefrontUrl()}
+        >
           <AgentPortalShell>{children}</AgentPortalShell>
         </AgentPortalProviders>
       </body>
