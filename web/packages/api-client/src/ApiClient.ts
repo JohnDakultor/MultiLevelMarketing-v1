@@ -115,12 +115,21 @@ export class ApiClient {
 
     if (
       response.status === 204 ||
+      response.status === 205 ||
+      method === "HEAD" ||
       response.headers.get("content-length") === "0"
     ) {
       return undefined as T;
     }
 
-    return (await response.json()) as T;
+    // ASP.NET TypedResults.Ok() can return HTTP 200 with an empty body and no
+    // Content-Length header (for example, the logout endpoint). Calling
+    // Response.json() for that valid response throws "Unexpected end of JSON
+    // input", so inspect the body before decoding it.
+    const responseBody = await response.text();
+    if (!responseBody.trim()) return undefined as T;
+
+    return JSON.parse(responseBody) as T;
   }
 
   clearAntiforgeryToken(): void {

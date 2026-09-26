@@ -84,3 +84,17 @@ test("every API operation and antiforgery lookup requests API version 1.0", asyn
     ["1.0", "1.0"],
   );
 });
+
+test("successful HTTP 200 responses with an empty body resolve as void", async () => {
+  const client = new ApiClient({
+    authentication: "bearer",
+    fetchImplementation: async () => new Response(null, { status: 200 }),
+  });
+
+  await assert.doesNotReject(() =>
+    client.request<void>("/api/Users/logout", {
+      method: "POST",
+      body: {},
+    }),
+  );
+});
