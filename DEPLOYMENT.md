@@ -43,8 +43,10 @@ non-HTTPS values; localhost remains valid only in Development.
 ## UAT real-stack gate
 
 After deployment and migration, the `verify-uat` job runs the guarded Playwright
-suite against the public Container Apps. Configure these UAT GitHub Environment
-variables with disposable seeded test data:
+suite against the public Container Apps when its disposable fixture data is configured.
+Until then, the job reports the missing fixture names and skips Playwright without
+misrepresenting the suite as passed. Configure these UAT GitHub Environment variables
+with disposable seeded test data:
 
 - `E2E_CUSTOMER_EMAIL`, `E2E_AGENT_EMAIL`, `E2E_ADMIN_EMAIL`
 - `E2E_FOREIGN_ORGANIZATION_ID`, `E2E_REFERRAL_CODE`, `E2E_PRODUCT_SLUG`
@@ -57,6 +59,8 @@ variables with disposable seeded test data:
 Configure `E2E_CUSTOMER_PASSWORD`, `E2E_AGENT_PASSWORD`, and `E2E_ADMIN_PASSWORD`
 as UAT GitHub Environment secrets. Never point this job at Production; the workflow
 explicitly limits it to UAT because the suite creates and mutates business records.
+Once every listed value is present, the suite runs automatically and a failure blocks
+the UAT verification job.
 The same suite can be run manually with `E2E_REAL_STACK=1 npm run test:e2e:real`
 after exporting the public URLs and seeded values above.
 

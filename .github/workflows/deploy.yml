@@ -285,8 +285,8 @@ jobs:
       E2E_CUSTOMER_PASSWORD: ${{ secrets.E2E_CUSTOMER_PASSWORD }}
       E2E_AGENT_EMAIL: ${{ vars.E2E_AGENT_EMAIL }}
       E2E_AGENT_PASSWORD: ${{ secrets.E2E_AGENT_PASSWORD }}
-      E2E_ADMIN_EMAIL: ${{ vars.E2E_ADMIN_EMAIL }}
-      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_ADMIN_EMAIL: ${{ vars.E2E_ADMIN_EMAIL || vars.SEED_ADMINISTRATOR_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || secrets.SEED_ADMINISTRATOR_PASSWORD }}
       E2E_FOREIGN_ORGANIZATION_ID: ${{ vars.E2E_FOREIGN_ORGANIZATION_ID }}
       E2E_REFERRAL_CODE: ${{ vars.E2E_REFERRAL_CODE }}
       E2E_PRODUCT_SLUG: ${{ vars.E2E_PRODUCT_SLUG }}
@@ -307,11 +307,61 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci
+      - name: Check UAT browser-test fixtures
+        id: e2e_fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required=(
+            E2E_STOREFRONT_URL
+            E2E_AGENT_URL
+            E2E_ADMIN_URL
+            E2E_CUSTOMER_EMAIL
+            E2E_CUSTOMER_PASSWORD
+            E2E_AGENT_EMAIL
+            E2E_AGENT_PASSWORD
+            E2E_ADMIN_EMAIL
+            E2E_ADMIN_PASSWORD
+            E2E_FOREIGN_ORGANIZATION_ID
+            E2E_REFERRAL_CODE
+            E2E_PRODUCT_SLUG
+            E2E_PAID_ORDER_ID
+            E2E_CANCELLABLE_ORDER_ID
+            E2E_REFUNDABLE_ORDER_ID
+            E2E_PAYOUT_AMOUNT
+            E2E_PENDING_AGENT_CODE
+            E2E_ADMIN_REFUNDABLE_ORDER_NUMBER
+            E2E_ADMIN_PAYMENT_REFUND_AMOUNT
+            E2E_UNPLACED_AGENT_CODE
+            E2E_PLACEMENT_PARENT_AGENT_CODE
+            E2E_PENDING_PAYOUT_ACCOUNT_AGENT_CODE
+          )
+
+          missing=()
+          for variable_name in "${required[@]}"; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              missing+=("$variable_name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::UAT real-stack E2E is not configured and will be skipped. Missing variables/secrets: ${missing[*]}"
+            echo "Create disposable UAT fixtures, add their values to the GitHub uat environment, and rerun this workflow."
+            exit 0
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Install frontend dependencies
+        if: steps.e2e_fixtures.outputs.ready == 'true'
+        run: npm ci
         working-directory: web
       - name: Install Playwright browser
+        if: steps.e2e_fixtures.outputs.ready == 'true'
         run: npx playwright install --with-deps chromium
         working-directory: web
       - name: Verify deployed UAT workflows
+        if: steps.e2e_fixtures.outputs.ready == 'true'
         run: npm run test:e2e:real
         working-directory: web
