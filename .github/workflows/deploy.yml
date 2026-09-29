@@ -78,6 +78,39 @@ jobs:
           allow-no-subscriptions: true
       - name: Verify Azure resource group access
         run: az group show --name "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION_ID" --output none
+      - name: Validate public deployment URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for variable_name in \
+            PUBLIC_API_BASE_URL \
+            PUBLIC_ADMIN_BASE_URL \
+            PUBLIC_STOREFRONT_BASE_URL
+          do
+            if [[ -z "${!variable_name:-}" ]]; then
+              missing+=("$variable_name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing GitHub environment variables in '$DEPLOYMENT_ENVIRONMENT': ${missing[*]}" >&2
+            echo "Add them under Settings > Environments > $DEPLOYMENT_ENVIRONMENT > Environment variables." >&2
+            exit 1
+          fi
+
+          for variable_name in \
+            PUBLIC_API_BASE_URL \
+            PUBLIC_ADMIN_BASE_URL \
+            PUBLIC_STOREFRONT_BASE_URL
+          do
+            value="${!variable_name}"
+            if [[ ! "$value" =~ ^https:// ]] || [[ "$value" =~ localhost|127\.0\.0\.1 ]]; then
+              echo "$variable_name must be a public HTTPS origin without a localhost address." >&2
+              exit 1
+            fi
+          done
       - name: Install Aspire CLI
         run: dotnet tool install --global Aspire.Cli --version "$ASPIRE_CLI_VERSION"
       - name: Restore Aspire deployment state
