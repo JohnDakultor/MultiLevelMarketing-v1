@@ -123,6 +123,49 @@ jobs:
             aspire-${{ env.DEPLOYMENT_ENVIRONMENT }}-
       - name: Deploy application and infrastructure
         run: aspire deploy --apphost src/AppHost/AppHost.csproj --environment "$DEPLOYMENT_ENVIRONMENT" --non-interactive
+      - name: Configure public marketplace assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          storage_account="$(
+            az storage account list \
+              --subscription "$AZURE_SUBSCRIPTION_ID" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[?contains(name, 'objectstorage')].name | [0]" \
+              --output tsv
+          )"
+
+          if [[ -z "$storage_account" ]]; then
+            echo "ERROR: Aspire object-storage account was not found." >&2
+            az storage account list \
+              --subscription "$AZURE_SUBSCRIPTION_ID" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[].name" \
+              --output tsv >&2
+            exit 1
+          fi
+
+          az storage account update \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$storage_account" \
+            --allow-blob-public-access true \
+            --output none
+
+          # Azure documents up to 30 seconds of propagation after changing the
+          # account-level anonymous access setting. Apply the container ACL only
+          # after that window so ARM does not return PublicAccessNotPermitted.
+          sleep 30
+
+          container_id="/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$storage_account/blobServices/default/containers/marketplace-assets"
+          az resource update \
+            --ids "$container_id" \
+            --api-version 2023-05-01 \
+            --set properties.publicAccess=Blob \
+            --output none
+
+          echo "Configured marketplace-assets for anonymous blob read access."
 
   migrate:
     needs: deploy

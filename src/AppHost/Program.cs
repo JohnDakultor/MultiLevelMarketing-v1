@@ -40,16 +40,6 @@ storage.ConfigureInfrastructure(infrastructure =>
     var resources = infrastructure.GetProvisionableResources();
     var account = resources.OfType<StorageAccount>().Single();
     account.AllowBlobPublicAccess = true;
-
-    var assetContainer = resources
-        .OfType<BlobContainer>()
-        .Single(container =>
-            container.Name.Value?.EndsWith(
-                Services.ObjectStorageContainer,
-                StringComparison.Ordinal
-            ) == true
-        );
-    assetContainer.PublicAccess = StoragePublicAccessType.Blob;
 });
 
 var databaseMigrator = builder
