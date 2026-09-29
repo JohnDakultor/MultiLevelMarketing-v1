@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Domain.Constants;
+using modular_mlm.Infrastructure.BackgroundJobs;
 
 namespace modular_mlm.Application.FunctionalTests.Infrastructure;
 
@@ -14,6 +16,21 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
     {
         builder.UseContentRoot(ResolveWebContentRoot());
         builder.UseSetting("Cors:AllowedOrigins:0", "https://frontend.test");
+        // CI runs the release suite with the Staging environment so the deployed-runtime
+        // URL validators are active. Supply inert, non-loopback HTTPS URLs for the test
+        // host instead of allowing it to inherit the localhost development defaults.
+        builder.UseSetting(
+            "IdentitySecurity:PasswordResetBaseUrl",
+            "https://storefront.example.test/reset-password"
+        );
+        builder.UseSetting(
+            "AdministratorInvitations:AcceptanceBaseUrl",
+            "https://admin.example.test/invitations/accept"
+        );
+        builder.UseSetting(
+            "PayMongo:PayoutCallbackUrl",
+            "https://api.example.test/api/webhooks/paymongo/transfers"
+        );
         builder.UseSetting("BackgroundJobs:CommissionRelease:Enabled", "false");
         builder.UseSetting("BackgroundJobs:CommissionRelease:OrganizationBatchSize", "1");
         builder.UseSetting("BackgroundJobs:CommissionRelease:CommissionBatchSize", "1");
@@ -29,6 +46,16 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
 
         builder.ConfigureTestServices(services =>
         {
+            foreach (
+                var registration in services
+                    .Where(service =>
+                        service.ServiceType == typeof(IHostedService)
+                        && service.ImplementationType == typeof(WalletSettingsStartupValidator)
+                    )
+                    .ToArray()
+            )
+                services.Remove(registration);
+
             services.RemoveAll<IAdministratorInvitationDelivery>();
             services.RemoveAll<IInvitationDeliveryOutbox>();
             services.RemoveAll<IPaymentGateway>();
