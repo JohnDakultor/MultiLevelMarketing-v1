@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
 using modular_mlm.Domain.Events;
 using modular_mlm.Domain.Exceptions;
 
@@ -16,6 +17,8 @@ public sealed class OrganizationDomain : OrganizationEntity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? VerifiedAt { get; private set; }
     public bool IsVerified => VerifiedAt.HasValue;
+    public string VerificationToken { get; private set; } = string.Empty;
+    public string VerificationRecordName => $"_modular-mlm-verification.{HostName}";
 
     public static OrganizationDomain Create(
         Guid organizationId,
@@ -35,6 +38,7 @@ public sealed class OrganizationDomain : OrganizationEntity
             HostName = NormalizeHostName(hostName),
             IsPrimary = isPrimary,
             CreatedAt = createdAt,
+            VerificationToken = RandomNumberGenerator.GetHexString(32).ToLowerInvariant(),
         };
 
         domain.RaiseConfiguredEvent(createdAt);

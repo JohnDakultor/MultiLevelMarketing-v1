@@ -97,20 +97,20 @@ authoritative item price, BV, Customer ID, Agent ID, or Organization ownership d
 
 ## Current Agent and Agent workspace endpoints
 
-| Method and route                                                        | Access             | Request/query            | Response                        | Frontend owner   |
-| ----------------------------------------------------------------------- | ------------------ | ------------------------ | ------------------------------- | ---------------- |
-| `POST /api/organizations/{organizationId}/agents/applications`          | Authenticated user | Optional sponsor input   | Created ID                      | Storefront/Agent |
-| `GET /api/organizations/{organizationId}/agent/context`                 | Authenticated      | None                     | `CurrentAgentContextDto` or 404 | Agent            |
-| `GET /api/organizations/{organizationId}/agent/application`             | Authenticated      | None                     | `AgentApplicationDto` or 404    | Agent            |
-| `GET /api/organizations/{organizationId}/agent/profile`                 | Agent              | None                     | `AgentProfileDto`               | Agent            |
-| `GET /api/organizations/{organizationId}/agent/qualification`           | Agent              | None                     | `AgentQualificationStatusDto`   | Agent            |
-| `PUT /api/organizations/{organizationId}/agent/preferred-leg`           | Agent              | `SetPreferredLegRequest` | 204                             | Agent            |
-| `GET /api/organizations/{organizationId}/agent/referral`                | Agent              | None                     | `ReferralLinkDto`               | Agent            |
-| `POST /api/organizations/{organizationId}/agent/referral/product-links` | Agent              | Product ID               | `ProductReferralLinkDto`        | Agent            |
-| `GET /api/organizations/{organizationId}/agent/sales`                   | Agent              | Paging/filter query      | `AttributedOrdersPageDto`       | Agent            |
-| `GET /api/organizations/{organizationId}/agent/sales/{orderId}`         | Agent              | Order ID                 | `AttributedOrderDetailsDto`     | Agent            |
-| `GET /api/organizations/{organizationId}/agent/sales/products`          | Agent              | Paging/filter query      | `AgentProductSalesPageDto`      | Agent            |
-| `GET /api/organizations/{organizationId}/reports/agent?from&to`         | Agent              | Date range               | `AgentReportDto`                | Agent            |
+| Method and route                                                        | Access             | Request/query            | Response                        | Frontend owner |
+| ----------------------------------------------------------------------- | ------------------ | ------------------------ | ------------------------------- | -------------- |
+| `POST /api/organizations/{organizationId}/agents/applications`          | Authenticated user | Optional sponsor input   | Created ID                      | Agent Portal   |
+| `GET /api/organizations/{organizationId}/agent/context`                 | Authenticated      | None                     | `CurrentAgentContextDto` or 404 | Agent          |
+| `GET /api/organizations/{organizationId}/agent/application`             | Authenticated      | None                     | `AgentApplicationDto` or 404    | Agent          |
+| `GET /api/organizations/{organizationId}/agent/profile`                 | Agent              | None                     | `AgentProfileDto`               | Agent          |
+| `GET /api/organizations/{organizationId}/agent/qualification`           | Agent              | None                     | `AgentQualificationStatusDto`   | Agent          |
+| `PUT /api/organizations/{organizationId}/agent/preferred-leg`           | Agent              | `SetPreferredLegRequest` | 204                             | Agent          |
+| `GET /api/organizations/{organizationId}/agent/referral`                | Agent              | None                     | `ReferralLinkDto`               | Agent          |
+| `POST /api/organizations/{organizationId}/agent/referral/product-links` | Agent              | Product ID               | `ProductReferralLinkDto`        | Agent          |
+| `GET /api/organizations/{organizationId}/agent/sales`                   | Agent              | Paging/filter query      | `AttributedOrdersPageDto`       | Agent          |
+| `GET /api/organizations/{organizationId}/agent/sales/{orderId}`         | Agent              | Order ID                 | `AttributedOrderDetailsDto`     | Agent          |
+| `GET /api/organizations/{organizationId}/agent/sales/products`          | Agent              | Paging/filter query      | `AgentProductSalesPageDto`      | Agent          |
+| `GET /api/organizations/{organizationId}/reports/agent?from&to`         | Agent              | Date range               | `AgentReportDto`                | Agent          |
 
 Older Agent-ID routes remain available for Agent/Admin use, but Application
 authorization verifies ownership and visibility. Agent Portal gets `agentId` from

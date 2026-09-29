@@ -7,6 +7,7 @@ import {
   PageHeader,
 } from "@modular-mlm/design-system";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 export default function AcceptAdministratorInvitationPage() {
@@ -23,9 +24,9 @@ export default function AcceptAdministratorInvitationPage() {
             title="Invitation accepted"
             description="Your Administrator account is ready."
           />
-          <a className="ds-button ds-button--primary" href="/sign-in">
+          <Link className="ds-button ds-button--primary" href="/sign-in">
             Sign in to Admin Portal
-          </a>
+          </Link>
         </div>
       </main>
     );

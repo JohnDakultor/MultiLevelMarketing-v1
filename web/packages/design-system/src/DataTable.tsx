@@ -12,11 +12,13 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
+  emptyMessage = "No records found.",
 }: {
   caption: string;
   columns: readonly DataTableColumn<T>[];
   rows: readonly T[];
   rowKey(item: T): string;
+  emptyMessage?: string;
 }) {
   return (
     <div
@@ -47,12 +49,20 @@ export function DataTable<T>({
                 <td
                   key={column.key}
                   className={`ds-align-${column.align ?? "start"}`}
+                  data-label={column.header}
                 >
                   {column.cell(row)}
                 </td>
               ))}
             </tr>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td className="ds-table__empty" colSpan={columns.length}>
+                {emptyMessage}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

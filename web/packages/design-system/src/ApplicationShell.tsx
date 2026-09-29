@@ -1,6 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
+
+export type ApplicationLinkComponent = ComponentType<{
+  href: string;
+  children: ReactNode;
+  className?: string;
+  "aria-label"?: string;
+  "aria-current"?: "page";
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
+}>;
 
 export interface ApplicationNavigationItem {
   href: string;
@@ -22,6 +38,7 @@ export function ApplicationShell({
   account,
   children,
   footer,
+  linkComponent,
 }: {
   variant: "storefront" | "workspace";
   brand: ApplicationBrand;
@@ -30,6 +47,7 @@ export function ApplicationShell({
   account?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  linkComponent?: ApplicationLinkComponent;
 }) {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -54,8 +72,11 @@ export function ApplicationShell({
       items={navigation}
       currentPath={currentPath}
       onNavigate={() => closeMenu(false)}
+      linkComponent={linkComponent}
     />
   );
+
+  const Link = linkComponent ?? "a";
 
   return (
     <div className={`application-shell application-shell--${variant}`}>
@@ -64,7 +85,7 @@ export function ApplicationShell({
       </a>
 
       <header className="application-shell__header">
-        <a
+        <Link
           className="application-shell__brand"
           href="/"
           aria-label={`${brand.name} home`}
@@ -84,7 +105,7 @@ export function ApplicationShell({
             <strong>{brand.name}</strong>
             <small>{brand.contextLabel}</small>
           </span>
-        </a>
+        </Link>
 
         {variant === "storefront" && (
           <nav
@@ -153,25 +174,28 @@ function NavigationLinks({
   items,
   currentPath,
   onNavigate,
+  linkComponent,
 }: {
   items: readonly ApplicationNavigationItem[];
   currentPath: string;
   onNavigate(): void;
+  linkComponent?: ApplicationLinkComponent;
 }) {
+  const Link = linkComponent ?? "a";
   return (
     <ul className="application-shell__navigation-list">
       {items.map((item) => {
         const isCurrent = matchesPath(currentPath, item.href);
         return (
           <li key={item.href}>
-            <a
+            <Link
               href={item.href}
               aria-current={isCurrent ? "page" : undefined}
               onClick={onNavigate}
             >
               <span>{item.label}</span>
               {item.description && <small>{item.description}</small>}
-            </a>
+            </Link>
           </li>
         );
       })}

@@ -4,6 +4,7 @@ import {
   useApiQuery,
   useFormSubmission,
 } from "@modular-mlm/api-client";
+import { ProductStatus } from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
@@ -14,11 +15,13 @@ import {
   InputField,
   PageHeader,
   SelectField,
+  StatusBadge,
   useConfirmation,
 } from "@modular-mlm/design-system";
-import { useState, type FormEvent } from "react";
+import { useDeferredValue, useState, type FormEvent } from "react";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, money, useAdminScope } from "../shared/AdminState";
+import { productStatus } from "../shared/status";
 
 export function CatalogInventoryPage() {
   const api = useApiClient();
@@ -28,6 +31,9 @@ export function CatalogInventoryPage() {
   const [search, setSearch] = useState("");
   const [lowStock, setLowStock] = useState(false);
   const [message, setMessage] = useState("");
+  const [actingAction, setActingAction] = useState<string | null>(null);
+  const productLifecycle = useFormSubmission();
+  const deferredSearch = useDeferredValue(search);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null,
   );
@@ -46,16 +52,18 @@ export function CatalogInventoryPage() {
         client,
         scope.organizationId,
         page,
-        search,
+        deferredSearch,
         lowStock,
         signal,
       ),
-    [scope.organizationId, page, search, lowStock],
+    [scope.organizationId, page, deferredSearch, lowStock],
     scope.isReady,
   );
   if (products.isLoading || inventory.isLoading) return <Loading />;
   if (products.error)
     return <Failure error={products.error} retry={products.reload} />;
+  if (inventory.error)
+    return <Failure error={inventory.error} retry={inventory.reload} />;
   const refresh = (value: string) => {
     setMessage(value);
     products.reload();
@@ -64,10 +72,16 @@ export function CatalogInventoryPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Commerce"
         title="Catalog and inventory"
         description="Manage publication and stock using current backend versions."
       />
       {message && <Alert title={message} tone="info" />}
+      <FormErrorSummary
+        errors={productLifecycle.fieldErrors}
+        generalErrors={productLifecycle.formErrors}
+        id={productLifecycle.errorSummaryId}
+      />
       <CategoryAdministration />
       <CreateProductForm
         onCreated={() => refresh("Product created as a draft.")}
@@ -102,53 +116,90 @@ export function CatalogInventoryPage() {
             },
             { key: "bv", header: "BV", cell: (row) => row.businessVolume },
             { key: "stock", header: "Stock", cell: (row) => row.stockQuantity },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => {
+                const status = productStatus(row.status);
+                return <StatusBadge label={status.label} tone={status.tone} />;
+              },
+            },
             {
               key: "actions",
               header: "Actions",
               cell: (row) => (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={async () => {
-                      await adminApi.publishProduct(
-                        api,
-                        scope.organizationId,
-                        row.id,
-                      );
-                      refresh(`${row.name} published.`);
-                    }}
-                  >
-                    Publish
-                  </Button>{" "}
+                <div className="button-cluster">
+                  {row.status === ProductStatus.draft && (
+                    <Button
+                      size="sm"
+                      disabled={productLifecycle.isSubmitting}
+                      isLoading={actingAction === `${row.id}:publish`}
+                      onClick={async () => {
+                        if (
+                          !(await confirm({
+                            title: "Publish product?",
+                            description: `Publish ${row.name} to the storefront?`,
+                            confirmLabel: "Publish product",
+                          }))
+                        )
+                          return;
+                        setActingAction(`${row.id}:publish`);
+                        const saved = await productLifecycle.submit(
+                          () =>
+                            adminApi.publishProduct(
+                              api,
+                              scope.organizationId,
+                              row.id,
+                            ),
+                          `${row.name} published.`,
+                        );
+                        setActingAction(null);
+                        if (saved) refresh(`${row.name} published.`);
+                      }}
+                    >
+                      Publish
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={() => setSelectedProductId(row.id)}
                   >
-                    Variants
-                  </Button>{" "}
-                  <Button
-                    variant="danger"
-                    onClick={async () => {
-                      if (
-                        !(await confirm({
-                          title: "Archive product?",
-                          description: `Archive ${row.name}? It will no longer be purchasable.`,
-                          confirmLabel: "Archive product",
-                        }))
-                      )
-                        return;
-                      await adminApi.archiveProduct(
-                        api,
-                        scope.organizationId,
-                        row.id,
-                      );
-                      refresh(`${row.name} archived.`);
-                    }}
-                  >
-                    Archive
+                    Manage
                   </Button>
-                </>
+                  {row.status !== ProductStatus.archived && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={productLifecycle.isSubmitting}
+                      isLoading={actingAction === `${row.id}:archive`}
+                      onClick={async () => {
+                        if (
+                          !(await confirm({
+                            title: "Archive product?",
+                            description: `Archive ${row.name}? It will no longer be purchasable.`,
+                            confirmLabel: "Archive product",
+                          }))
+                        )
+                          return;
+                        setActingAction(`${row.id}:archive`);
+                        const saved = await productLifecycle.submit(
+                          () =>
+                            adminApi.archiveProduct(
+                              api,
+                              scope.organizationId,
+                              row.id,
+                            ),
+                          `${row.name} archived.`,
+                        );
+                        setActingAction(null);
+                        if (saved) refresh(`${row.name} archived.`);
+                      }}
+                    >
+                      Archive
+                    </Button>
+                  )}
+                </div>
               ),
             },
           ]}
@@ -435,6 +486,7 @@ function ProductVariants({
     scope.isReady,
   );
   const productFeedback = useFormSubmission();
+  const imageFeedback = useFormSubmission();
   const assignmentFeedback = useFormSubmission();
   if (product.isLoading || categories.isLoading || profiles.isLoading)
     return <Loading />;
@@ -506,6 +558,106 @@ function ProductVariants({
               Save product
             </Button>
           </form>
+          <section
+            className="product-image-editor"
+            aria-labelledby="product-image-heading"
+          >
+            <div>
+              <h3 id="product-image-heading">Product image</h3>
+              <p>
+                PNG or JPEG, up to 5 MB. This image appears in the Storefront.
+              </p>
+            </div>
+            {product.data.defaultImageUrl ? (
+              <div
+                className="product-image-preview"
+                role="img"
+                aria-label={`${product.data.name} product image`}
+                style={{
+                  backgroundImage: `url(${JSON.stringify(product.data.defaultImageUrl)})`,
+                }}
+              />
+            ) : (
+              <div className="product-image-preview product-image-preview--empty">
+                No image uploaded
+              </div>
+            )}
+            <form
+              className="inline-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const image = new FormData(form).get("image");
+                if (!(image instanceof File) || image.size === 0) return;
+                const saved = await imageFeedback.submit(
+                  () =>
+                    adminApi.uploadProductImage(
+                      api,
+                      scope.organizationId,
+                      productId,
+                      image,
+                    ),
+                  "Product image uploaded.",
+                );
+                if (saved) {
+                  form.reset();
+                  product.reload();
+                  onSaved();
+                }
+              }}
+            >
+              <FormErrorSummary
+                errors={imageFeedback.fieldErrors}
+                generalErrors={imageFeedback.formErrors}
+                id={imageFeedback.errorSummaryId}
+              />
+              <InputField
+                name="image"
+                label="Image file"
+                type="file"
+                accept="image/png,image/jpeg"
+                required
+                hint="The server verifies the file content, extension, and dimensions."
+              />
+              <Button type="submit" isLoading={imageFeedback.isSubmitting}>
+                {product.data.defaultImageUrl
+                  ? "Replace image"
+                  : "Upload image"}
+              </Button>
+              {product.data.defaultImageUrl && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={imageFeedback.isSubmitting}
+                  onClick={async () => {
+                    if (
+                      !(await confirm({
+                        title: "Remove product image?",
+                        description: `Remove the Storefront image for ${product.data?.name}?`,
+                        confirmLabel: "Remove image",
+                      }))
+                    )
+                      return;
+                    const saved = await imageFeedback.submit(
+                      () =>
+                        adminApi.removeProductImage(
+                          api,
+                          scope.organizationId,
+                          productId,
+                        ),
+                      "Product image removed.",
+                    );
+                    if (saved) {
+                      product.reload();
+                      onSaved();
+                    }
+                  }}
+                >
+                  Remove image
+                </Button>
+              )}
+            </form>
+          </section>
           <form
             className="inline-form"
             onSubmit={async (event) => {
@@ -574,52 +726,63 @@ function ProductVariants({
             header: "Available",
             cell: (row) => row.available ?? "Not tracked",
           },
-          { key: "status", header: "Status", cell: (row) => row.status },
+          {
+            key: "status",
+            header: "Status",
+            cell: (row) => {
+              const status = productStatus(row.status);
+              return <StatusBadge label={status.label} tone={status.tone} />;
+            },
+          },
           {
             key: "action",
             header: "",
             cell: (row) => (
               <div className="button-cluster">
-                <VariantEditor
-                  productId={productId}
-                  variant={row}
-                  saved={() => {
-                    product.reload();
-                    onSaved();
-                  }}
-                />
-                <Button
-                  variant="danger"
-                  onClick={async () => {
-                    const reason = await prompt({
-                      title: "Reason for archiving variant",
-                      description: `Explain why ${row.sku} is being archived. This is recorded in the audit trail.`,
-                      label: "Archive reason",
-                      submitLabel: "Continue",
-                    });
-                    if (!reason) return;
-                    if (
-                      !(await confirm({
-                        title: "Archive product variant?",
-                        description: `Archive variant ${row.sku}? It will no longer be available for new purchases.`,
-                        confirmLabel: "Archive variant",
-                      }))
-                    )
-                      return;
-                    await adminApi.archiveVariant(
-                      api,
-                      scope.organizationId,
-                      productId,
-                      row.id,
-                      reason,
-                      row.version,
-                    );
-                    product.reload();
-                    onSaved();
-                  }}
-                >
-                  Archive
-                </Button>
+                {row.status !== ProductStatus.archived && (
+                  <VariantEditor
+                    productId={productId}
+                    variant={row}
+                    saved={() => {
+                      product.reload();
+                      onSaved();
+                    }}
+                  />
+                )}
+                {row.status !== ProductStatus.archived && (
+                  <Button
+                    variant="danger"
+                    onClick={async () => {
+                      const reason = await prompt({
+                        title: "Reason for archiving variant",
+                        description: `Explain why ${row.sku} is being archived. This is recorded in the audit trail.`,
+                        label: "Archive reason",
+                        submitLabel: "Continue",
+                      });
+                      if (!reason) return;
+                      if (
+                        !(await confirm({
+                          title: "Archive product variant?",
+                          description: `Archive variant ${row.sku}? It will no longer be available for new purchases.`,
+                          confirmLabel: "Archive variant",
+                        }))
+                      )
+                        return;
+                      await adminApi.archiveVariant(
+                        api,
+                        scope.organizationId,
+                        productId,
+                        row.id,
+                        reason,
+                        row.version,
+                      );
+                      product.reload();
+                      onSaved();
+                    }}
+                  >
+                    Archive
+                  </Button>
+                )}
               </div>
             ),
           },
@@ -995,9 +1158,12 @@ function CreateProductForm({ onCreated }: { onCreated(): void }) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    const saved = await feedback.submit(
-      () =>
-        adminApi.createProduct(api, scope.organizationId, {
+    const image = data.get("image");
+    const saved = await feedback.submit(async () => {
+      const productId = await adminApi.createProduct(
+        api,
+        scope.organizationId,
+        {
           categoryId: String(data.get("categoryId")),
           name: String(data.get("name")),
           slug: String(data.get("slug")),
@@ -1006,9 +1172,27 @@ function CreateProductForm({ onCreated }: { onCreated(): void }) {
           price: Number(data.get("price")),
           businessVolume: Number(data.get("businessVolume")),
           stockQuantity: Number(data.get("stockQuantity")),
-        }),
-      "Draft product created.",
-    );
+        },
+      );
+      if (image instanceof File && image.size > 0) {
+        try {
+          await adminApi.uploadProductImage(
+            api,
+            scope.organizationId,
+            productId,
+            image,
+          );
+        } catch (error) {
+          form.reset();
+          onCreated();
+          throw new Error(
+            "The draft product was created, but its image could not be uploaded. Open Manage to retry.",
+            { cause: error },
+          );
+        }
+      }
+      return productId;
+    }, "Draft product created.");
     if (saved) {
       form.reset();
       onCreated();
@@ -1058,6 +1242,13 @@ function CreateProductForm({ onCreated }: { onCreated(): void }) {
             label="Description"
             required
             error={feedback.fieldError("description")}
+          />
+          <InputField
+            name="image"
+            label="Product image"
+            type="file"
+            accept="image/png,image/jpeg"
+            hint="Optional PNG or JPEG, up to 5 MB. You can replace it later."
           />
           <InputField
             name="sku"

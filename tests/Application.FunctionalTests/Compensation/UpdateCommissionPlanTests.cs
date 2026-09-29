@@ -233,6 +233,26 @@ public sealed class UpdateCommissionPlanTests : Infrastructure.TestBase
             QualificationRulesJson = "not-json",
         };
         await Should.ThrowAsync<ValidationException>(() => SendAsync(invalidJson));
+
+        var wrongShape = CreateCommand(
+            data,
+            PairingCalculationType.PercentageMatchedVolume,
+            binaryPairingRate: 0.1m
+        ) with
+        {
+            QualificationRulesJson = "[{\"requireActiveAgent\":true}]",
+        };
+        await Should.ThrowAsync<ValidationException>(() => SendAsync(wrongShape));
+
+        var invalidCap = CreateCommand(
+            data,
+            PairingCalculationType.PercentageMatchedVolume,
+            binaryPairingRate: 0.1m
+        ) with
+        {
+            CapRulesJson = "{\"enabled\":true,\"maximumAmount\":0}",
+        };
+        await Should.ThrowAsync<ValidationException>(() => SendAsync(invalidCap));
     }
 
     private static UpdateCommissionPlanCommand CreateCommand(

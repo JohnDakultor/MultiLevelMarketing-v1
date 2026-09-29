@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ApiError,
   useApiClient,
   useApiQuery,
   useFormSubmission,
@@ -10,6 +9,7 @@ import type {
   CustomerAddressDto,
   CustomerAddressRequest,
 } from "@modular-mlm/contracts";
+import { OrderStatus } from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
@@ -19,6 +19,7 @@ import {
   FormErrorSummary,
   InputField,
   PageHeader,
+  SelectField,
   TextareaField,
   useConfirmation,
 } from "@modular-mlm/design-system";
@@ -26,11 +27,16 @@ import { useOrganization } from "@modular-mlm/organization-context";
 import { useState, type FormEvent } from "react";
 import { useAuthentication } from "@modular-mlm/auth";
 import { SessionManagementPage } from "@modular-mlm/auth";
+import Link from "next/link";
 import { storefrontApi } from "../api/storefrontApi";
 import { ScreenError, ScreenLoading, date, money } from "../shared/ScreenState";
+import {
+  FulfillmentStatusBadge,
+  OrderStatusBadge,
+  PaymentStatusBadge,
+} from "../shared/StorefrontPrimitives";
 
 export function AccountHomePage() {
-  const { organization } = useOrganization();
   return (
     <div className="content-stack">
       <PageHeader
@@ -40,39 +46,28 @@ export function AccountHomePage() {
       <div className="card-grid">
         <Card>
           <h2>
-            <a href="/account/profile">Profile</a>
+            <Link href="/account/profile">Profile</Link>
           </h2>
-          <p>Review the name associated with this marketplace.</p>
+          <p>Review the name shown on your account.</p>
         </Card>
         <Card>
           <h2>
-            <a href="/account/addresses">Addresses</a>
+            <Link href="/account/addresses">Addresses</Link>
           </h2>
           <p>Manage checkout delivery and billing addresses.</p>
         </Card>
         <Card>
           <h2>
-            <a href="/account/orders">Orders</a>
+            <Link href="/account/orders">Orders</Link>
           </h2>
-          <p>Track fulfillment, cancellations, and eligible refunds.</p>
+          <p>Track delivery, cancellations, and available refunds.</p>
         </Card>
         <Card>
           <h2>
-            <a href="/account/security">Sign-in sessions</a>
+            <Link href="/account/security">Sign-in sessions</Link>
           </h2>
           <p>Review and revoke browsers signed in to your account.</p>
         </Card>
-        {organization?.agentProgramEnabled && (
-          <Card>
-            <h2>
-              <a href="/account/agent-application">Become an Agent</a>
-            </h2>
-            <p>
-              Apply using your current marketplace account and follow its
-              status.
-            </p>
-          </Card>
-        )}
       </div>
     </div>
   );
@@ -253,125 +248,6 @@ export function AccountSecurityPage() {
   );
 }
 
-const agentStatusLabels = [
-  "Applied",
-  "Pending approval",
-  "Active",
-  "Inactive",
-  "Suspended",
-  "Closed",
-] as const;
-
-export function AgentApplicationPage() {
-  const api = useApiClient();
-  const authentication = useAuthentication();
-  const { organization } = useOrganization();
-  const [isSubmitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const application = useApiQuery(
-    (client, signal) =>
-      storefrontApi.agentApplication(client, organization!.id, signal),
-    [organization?.id],
-    Boolean(organization?.agentProgramEnabled),
-  );
-
-  if (!organization?.agentProgramEnabled)
-    return (
-      <EmptyState
-        title="Agent applications are unavailable"
-        description="This organization has not enabled its Agent program."
-      />
-    );
-  if (application.isLoading) return <ScreenLoading />;
-  const hasNoApplication =
-    application.error instanceof ApiError && application.error.status === 404;
-  if (application.error && !hasNoApplication)
-    return <ScreenError error={application.error} retry={application.reload} />;
-
-  if (application.data) {
-    const status =
-      agentStatusLabels[application.data.status] ??
-      `Status ${application.data.status}`;
-    return (
-      <div className="content-stack">
-        <PageHeader
-          title="Agent application"
-          description="Your application is tied to this signed-in account."
-        />
-        <Alert
-          title={status}
-          tone={application.data.status === 2 ? "success" : "info"}
-        >
-          Agent code {application.data.agentCode}. Submitted{" "}
-          {date(application.data.joinedAt)}.
-        </Alert>
-        <Card>
-          <h2>Application details</h2>
-          <p>
-            Sponsor: {application.data.sponsorAgentCode ?? "None"}
-            <br />
-            Qualification: {application.data.qualificationState}
-            <br />
-            Placement:{" "}
-            {application.data.isPlacementPending ? "Pending" : "Assigned"}
-          </p>
-          {application.data.status === 2 &&
-            !authentication.user?.roles.includes("Agent") && (
-              <Alert
-                title="Account access is still being prepared"
-                tone="warning"
-              >
-                Your Agent record is active, but the backend has not granted
-                this identity the Agent role yet.
-              </Alert>
-            )}
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="content-stack">
-      <PageHeader
-        title="Apply to become an Agent"
-        description="The application uses your signed-in identity. You cannot apply for another person."
-      />
-      {submitError && (
-        <Alert title="Application could not be submitted" tone="danger">
-          {submitError}
-        </Alert>
-      )}
-      <Card className="form-card">
-        <h2>Before you apply</h2>
-        <p>
-          Your application will be reviewed by an organization administrator.
-          Access to the Agent Portal begins only after approval and activation.
-        </p>
-        <Button
-          isLoading={isSubmitting}
-          disabled={isSubmitting}
-          onClick={async () => {
-            setSubmitting(true);
-            setSubmitError("");
-            try {
-              await storefrontApi.applyAsAgent(api, organization.id);
-              application.reload();
-            } catch (error) {
-              setSubmitError(
-                error instanceof Error ? error.message : "Please try again.",
-              );
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-        >
-          Submit Agent application
-        </Button>
-      </Card>
-    </div>
-  );
-}
-
 export function ProfilePage() {
   const api = useApiClient();
   const { organization } = useOrganization();
@@ -389,8 +265,8 @@ export function ProfilePage() {
   if (!profile.data)
     return (
       <EmptyState
-        title="Customer profile unavailable"
-        description="Your account is signed in, but no customer profile is available for this organization."
+        title="Profile unavailable"
+        description="Your profile could not be loaded for this shop."
       />
     );
   const value = displayName || profile.data?.displayName || "";
@@ -398,7 +274,7 @@ export function ProfilePage() {
     <div className="content-stack">
       <PageHeader
         title="Profile"
-        description="This profile belongs to the signed-in customer."
+        description="Update the name shown on your account."
       />
       <Card className="form-card">
         <InputField
@@ -472,7 +348,7 @@ export function AddressesPage() {
     <div className="content-stack">
       <PageHeader
         title="Addresses"
-        description="Saved addresses are available only to your current customer account."
+        description="Manage the addresses saved to your account."
       />
       {message && <Alert title={message} tone="success" />}
       {addresses.data?.length ? (
@@ -705,9 +581,17 @@ function AddressForm({
 export function OrdersPage() {
   const { organization } = useOrganization();
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("");
   const orders = useApiQuery(
-    (api, signal) => storefrontApi.orders(api, organization!.id, page, signal),
-    [organization?.id, page],
+    (api, signal) =>
+      storefrontApi.orders(
+        api,
+        organization!.id,
+        page,
+        status === "" ? undefined : Number(status),
+        signal,
+      ),
+    [organization?.id, page, status],
     Boolean(organization),
   );
   if (orders.isLoading) return <ScreenLoading />;
@@ -717,8 +601,31 @@ export function OrdersPage() {
     <div className="content-stack">
       <PageHeader
         title="Orders"
-        description="Your order history is paged by the backend."
+        description="Review purchases and follow their progress."
       />
+      <div className="storefront-order-filters">
+        <SelectField
+          id="order-status"
+          label="Filter by status"
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All orders</option>
+          <option value={OrderStatus.pendingPayment}>Awaiting payment</option>
+          <option value={OrderStatus.paid}>Paid</option>
+          <option value={OrderStatus.processing}>Processing</option>
+          <option value={OrderStatus.shipped}>Shipped</option>
+          <option value={OrderStatus.delivered}>Delivered</option>
+          <option value={OrderStatus.cancelled}>Cancelled</option>
+          <option value={OrderStatus.partiallyRefunded}>
+            Partially refunded
+          </option>
+          <option value={OrderStatus.refunded}>Refunded</option>
+        </SelectField>
+      </div>
       {!orders.data?.items.length ? (
         <EmptyState
           title="No orders yet"
@@ -734,7 +641,9 @@ export function OrdersPage() {
               key: "number",
               header: "Order",
               cell: (item) => (
-                <a href={`/account/orders/${item.id}`}>{item.orderNumber}</a>
+                <Link href={`/account/orders/${item.id}`}>
+                  {item.orderNumber}
+                </Link>
               ),
             },
             {
@@ -746,8 +655,12 @@ export function OrdersPage() {
             {
               key: "status",
               header: "Status",
-              cell: (item) =>
-                `Order ${item.status} · Payment ${item.paymentStatus}`,
+              cell: (item) => (
+                <div className="storefront-status-cluster">
+                  <OrderStatusBadge value={item.status} />
+                  <PaymentStatusBadge value={item.paymentStatus} />
+                </div>
+              ),
             },
             {
               key: "total",
@@ -798,7 +711,7 @@ export function OrderDetailsPage({ orderId }: { orderId: string }) {
     return (
       <EmptyState
         title="Order unavailable"
-        description="The order does not exist or is not available to this customer."
+        description="This order could not be found in your account."
         action={<a href="/account/orders">Return to order history</a>}
       />
     );
@@ -806,10 +719,14 @@ export function OrderDetailsPage({ orderId }: { orderId: string }) {
     <div className="content-stack">
       <PageHeader
         title={`Order ${order.data.orderNumber}`}
-        description={`Placed ${date(order.data.createdAt)} · Order ${order.data.status} · Payment ${order.data.paymentStatus}`}
+        description={`Placed ${date(order.data.createdAt)}`}
       />
       {message && <Alert title={message} tone="info" />}
       <Card>
+        <div className="storefront-status-cluster">
+          <OrderStatusBadge value={order.data.status} />
+          <PaymentStatusBadge value={order.data.paymentStatus} />
+        </div>
         <div className="summary-line">
           <span>Total</span>
           <strong>{money(order.data.grandTotal, order.data.currency)}</strong>
@@ -823,9 +740,9 @@ export function OrderDetailsPage({ orderId }: { orderId: string }) {
         <Card key={item.id}>
           <h2>{item.productName}</h2>
           <p>
-            {item.sku} · Quantity {item.quantity} · Fulfillment{" "}
-            {item.fulfillmentStatus}
+            {item.sku} · Quantity {item.quantity}
           </p>
+          <FulfillmentStatusBadge value={item.fulfillmentStatus} />
           <p>{money(item.lineTotal, order.data!.currency)}</p>
           {item.canRequestRefund ? (
             <details>
@@ -867,7 +784,7 @@ export function OrderDetailsPage({ orderId }: { orderId: string }) {
               if (
                 !(await confirm({
                   title: "Request order cancellation?",
-                  description: `Request cancellation of order ${order.data!.orderNumber}? The request remains subject to fulfillment eligibility.`,
+                  description: `Request cancellation of order ${order.data!.orderNumber}? We will confirm whether it can still be cancelled.`,
                   confirmLabel: "Request cancellation",
                 }))
               )

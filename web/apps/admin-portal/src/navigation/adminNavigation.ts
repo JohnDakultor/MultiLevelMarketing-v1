@@ -44,6 +44,11 @@ const navigation: readonly AdminNavigationItem[] = [
     capability: Capabilities.organizationAdministration,
   },
   {
+    href: "/customers",
+    label: "Customers",
+    capability: Capabilities.organizationAdministration,
+  },
+  {
     href: "/agents",
     label: "Agents",
     capability: Capabilities.organizationAdministration,

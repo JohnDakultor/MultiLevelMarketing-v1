@@ -17,7 +17,7 @@ namespace modular_mlm.Infrastructure.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -427,6 +427,10 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("DefaultImageObjectKey")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
                     b.Property<string>("DefaultImageUrl")
                         .HasColumnType("text");
 
@@ -459,6 +463,10 @@ namespace modular_mlm.Infrastructure.Data.Migrations
 
                     b.HasIndex("OrganizationId", "Slug")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CategoryId", "Status");
+
+                    b.HasIndex("OrganizationId", "Status", "Created");
 
                     b.ToTable("Products", (string)null);
                 });
@@ -1410,6 +1418,11 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
                     b.Property<DateTimeOffset>("LastModified")
                         .HasColumnType("timestamp with time zone");
 
@@ -1419,12 +1432,21 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Email");
+
+                    b.HasIndex("OrganizationId", "Status");
 
                     b.HasIndex("OrganizationId", "UserId")
                         .IsUnique();
@@ -1808,13 +1830,19 @@ namespace modular_mlm.Infrastructure.Data.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("VerificationToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset?>("VerifiedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
                     b.HasIndex("HostName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("IX_OrganizationDomains_HostName");
 
                     b.HasIndex("OrganizationId")
                         .IsUnique()

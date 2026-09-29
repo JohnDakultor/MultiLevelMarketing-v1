@@ -4,6 +4,7 @@ import {
   useApiQuery,
   useFormSubmission,
 } from "@modular-mlm/api-client";
+import { PayoutStatus, PayoutVerificationStatus } from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
@@ -11,6 +12,7 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
+  StatusBadge,
   useConfirmation,
 } from "@modular-mlm/design-system";
 import { useState } from "react";
@@ -22,13 +24,16 @@ import {
   money,
   useAdminScope,
 } from "../shared/AdminState";
+import { payoutAccountStatus, payoutStatus } from "../shared/status";
 
 export function PayoutAdministrationPage() {
   const api = useApiClient();
   const { confirm } = useConfirmation();
   const scope = useAdminScope();
   const [page, setPage] = useState(1);
+  const [accountPage, setAccountPage] = useState(1);
   const [message, setMessage] = useState("");
+  const [actingAction, setActingAction] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const feedback = useFormSubmission();
   const payouts = useApiQuery(
@@ -37,9 +42,25 @@ export function PayoutAdministrationPage() {
     [scope.organizationId, page],
     scope.isReady,
   );
-  if (payouts.isLoading) return <Loading />;
+  const payoutAccounts = useApiQuery(
+    (client, signal) =>
+      adminApi.payoutAccounts(
+        client,
+        scope.organizationId,
+        accountPage,
+        signal,
+        "Pending",
+      ),
+    [scope.organizationId, accountPage],
+    scope.isReady,
+  );
+  if (payouts.isLoading || payoutAccounts.isLoading) return <Loading />;
   if (payouts.error)
     return <Failure error={payouts.error} retry={payouts.reload} />;
+  if (payoutAccounts.error)
+    return (
+      <Failure error={payoutAccounts.error} retry={payoutAccounts.reload} />
+    );
   const action = async (
     id: string,
     value: "approve" | "reject" | "process" | "reconcile",
@@ -52,22 +73,154 @@ export function PayoutAdministrationPage() {
       }))
     )
       return;
+    setActingAction(`${id}:${value}`);
     const completed = await feedback.submit(
       () => adminApi.payoutAction(api, scope.organizationId, id, value),
       `Payout ${value} completed.`,
     );
+    setActingAction(null);
     if (completed) {
       setMessage(`Payout ${id} ${value} completed.`);
       payouts.reload();
     }
   };
+  const reviewAccount = async (id: string, value: "verify" | "reject") => {
+    if (
+      !(await confirm({
+        title: `${value} payout account?`,
+        description:
+          value === "verify"
+            ? "Confirm that the masked destination details have completed your organization's verification process."
+            : "Reject this payout destination. The Agent will not be able to request a payout to it.",
+        confirmLabel: value === "verify" ? "Verify account" : "Reject account",
+      }))
+    )
+      return;
+    setActingAction(`${id}:account:${value}`);
+    const completed = await feedback.submit(
+      () => adminApi.payoutAccountAction(api, scope.organizationId, id, value),
+      `Payout account ${value === "verify" ? "verified" : "rejected"}.`,
+    );
+    setActingAction(null);
+    if (completed) {
+      setMessage(
+        `Payout account ${value === "verify" ? "verified" : "rejected"}.`,
+      );
+      payoutAccounts.reload();
+    }
+  };
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Finance"
         title="Payout administration"
         description="Review and advance provider-backed payout requests with explicit confirmation."
       />
       {message && <Alert title={message} tone="info" />}
+      <Card>
+        <div className="action-row">
+          <div>
+            <h2>Payout accounts awaiting verification</h2>
+            <p>
+              Review masked bank or e-wallet destinations submitted by Agents.
+            </p>
+          </div>
+          <StatusBadge
+            label={`${payoutAccounts.data?.totalCount ?? 0} pending`}
+            tone={
+              (payoutAccounts.data?.totalCount ?? 0) > 0 ? "warning" : "neutral"
+            }
+          />
+        </div>
+        {!payoutAccounts.data?.items.length ? (
+          <EmptyState
+            title="No payout accounts awaiting verification"
+            description="Submitted Agent payout destinations will appear here for review."
+          />
+        ) : (
+          <DataTable
+            caption="Payout accounts awaiting verification"
+            rows={payoutAccounts.data.items}
+            rowKey={(row) => row.id}
+            columns={[
+              {
+                key: "agent",
+                header: "Agent",
+                cell: (row) => row.agentCode,
+              },
+              {
+                key: "destination",
+                header: "Destination",
+                cell: (row) => `${row.method} · ${row.maskedAccountData}`,
+              },
+              {
+                key: "network",
+                header: "Bank / rail",
+                cell: (row) => `${row.bankCode} · ${row.rail}`,
+              },
+              {
+                key: "submitted",
+                header: "Submitted",
+                cell: (row) => date(row.createdAt),
+              },
+              {
+                key: "verification",
+                header: "Status",
+                cell: (row) => {
+                  const status = payoutAccountStatus(row.verificationStatus);
+                  return (
+                    <StatusBadge label={status.label} tone={status.tone} />
+                  );
+                },
+              },
+              {
+                key: "actions",
+                header: "Actions",
+                cell: (row) =>
+                  row.verificationStatus ===
+                  PayoutVerificationStatus.pending ? (
+                    <div className="button-cluster">
+                      <Button
+                        size="sm"
+                        disabled={feedback.isSubmitting}
+                        isLoading={actingAction === `${row.id}:account:verify`}
+                        onClick={() => void reviewAccount(row.id, "verify")}
+                      >
+                        Verify
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={feedback.isSubmitting}
+                        isLoading={actingAction === `${row.id}:account:reject`}
+                        onClick={() => void reviewAccount(row.id, "reject")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  ) : null,
+              },
+            ]}
+          />
+        )}
+        <div className="pagination-row">
+          <Button
+            variant="secondary"
+            disabled={!payoutAccounts.data?.hasPreviousPage}
+            onClick={() => setAccountPage((value) => value - 1)}
+          >
+            Previous
+          </Button>
+          <span>Page {accountPage}</span>
+          <Button
+            variant="secondary"
+            disabled={!payoutAccounts.data?.hasNextPage}
+            onClick={() => setAccountPage((value) => value + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </Card>
       {!payouts.data?.length ? (
         <EmptyState
           title="No payout requests"
@@ -94,38 +247,72 @@ export function PayoutAdministrationPage() {
               header: "Amount",
               cell: (row) => money(row.amount, row.currency),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => <PayoutStatusBadge value={row.status} />,
+            },
             {
               key: "actions",
               header: "Actions",
-              cell: (row) => (
-                <div className="button-cluster">
-                  <Button onClick={() => void action(row.id, "approve")}>
-                    Approve
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={() => void action(row.id, "reject")}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => void action(row.id, "process")}
-                  >
-                    Submit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => void action(row.id, "reconcile")}
-                  >
-                    Reconcile
-                  </Button>
-                  <Button variant="ghost" onClick={() => setSelectedId(row.id)}>
-                    Details
-                  </Button>
-                </div>
-              ),
+              cell: (row) => {
+                const isUnderReview = row.status === PayoutStatus.underReview;
+                const isApproved = row.status === PayoutStatus.approved;
+                const isProcessing = row.status === PayoutStatus.processing;
+                return (
+                  <div className="button-cluster">
+                    {isUnderReview && (
+                      <>
+                        <Button
+                          size="sm"
+                          disabled={feedback.isSubmitting}
+                          isLoading={actingAction === `${row.id}:approve`}
+                          onClick={() => void action(row.id, "approve")}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={feedback.isSubmitting}
+                          isLoading={actingAction === `${row.id}:reject`}
+                          onClick={() => void action(row.id, "reject")}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {isApproved && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={feedback.isSubmitting}
+                        isLoading={actingAction === `${row.id}:process`}
+                        onClick={() => void action(row.id, "process")}
+                      >
+                        Submit to provider
+                      </Button>
+                    )}
+                    {isProcessing && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={feedback.isSubmitting}
+                        isLoading={actingAction === `${row.id}:reconcile`}
+                        onClick={() => void action(row.id, "reconcile")}
+                      >
+                        Reconcile
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedId(row.id)}
+                    >
+                      Details
+                    </Button>
+                  </div>
+                );
+              },
             },
           ]}
         />
@@ -151,10 +338,6 @@ export function PayoutAdministrationPage() {
         <PayoutDetails
           payoutId={selectedId}
           close={() => setSelectedId(null)}
-          saved={(value) => {
-            setMessage(value);
-            payouts.reload();
-          }}
         />
       )}
     </div>
@@ -164,15 +347,11 @@ export function PayoutAdministrationPage() {
 function PayoutDetails({
   payoutId,
   close,
-  saved,
 }: {
   payoutId: string;
   close(): void;
-  saved(message: string): void;
 }) {
-  const api = useApiClient();
   const scope = useAdminScope();
-  const { confirm } = useConfirmation();
   const details = useApiQuery(
     (client, signal) =>
       adminApi.payoutDetails(client, scope.organizationId, payoutId, signal),
@@ -190,32 +369,6 @@ function PayoutDetails({
       />
     );
   const payout = details.data;
-  async function accountAction(action: "verify" | "reject") {
-    if (
-      !(await confirm({
-        title: `${action} payout account?`,
-        description: `${action} the account associated with this ${money(payout.amount, payout.currency)} payout? This changes whether the account can receive payouts.`,
-        confirmLabel: `${action} account`,
-      }))
-    )
-      return;
-    try {
-      await adminApi.payoutAccountAction(
-        api,
-        scope.organizationId,
-        payout.payoutAccountId,
-        action,
-      );
-      saved(`Payout account ${action} completed.`);
-      details.reload();
-    } catch (error) {
-      saved(
-        error instanceof Error
-          ? error.message
-          : "Payout-account operation failed.",
-      );
-    }
-  }
   return (
     <Card>
       <div className="action-row">
@@ -232,7 +385,9 @@ function PayoutDetails({
       </div>
       <dl>
         <dt>Status</dt>
-        <dd>{payout.status}</dd>
+        <dd>
+          <PayoutStatusBadge value={payout.status} />
+        </dd>
         <dt>Provider reference</dt>
         <dd>{payout.providerReference ?? "Not assigned"}</dd>
         <dt>Transfer</dt>
@@ -240,20 +395,11 @@ function PayoutDetails({
         <dt>Failure</dt>
         <dd>{payout.failureMessage ?? "None"}</dd>
       </dl>
-      <div className="button-cluster">
-        <Button onClick={() => void accountAction("verify")}>
-          Verify payout account
-        </Button>
-        <Button variant="danger" onClick={() => void accountAction("reject")}>
-          Reject payout account
-        </Button>
-      </div>
-      <p>
-        <small>
-          The backend does not currently accept a rejection reason for payout
-          accounts, so this confirmation cannot persist one.
-        </small>
-      </p>
     </Card>
   );
+}
+
+function PayoutStatusBadge({ value }: { value: number }) {
+  const status = payoutStatus(value);
+  return <StatusBadge label={status.label} tone={status.tone} />;
 }

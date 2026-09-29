@@ -3,6 +3,27 @@ import test from "node:test";
 import { ApiClient } from "@modular-mlm/api-client";
 import { agentApi } from "./agentApi";
 
+test("Agent application is submitted inside the Agent Portal with the backend DTO", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input, init) => {
+      requests.push({ url: String(input), init });
+      if (String(input).endsWith("/api/security/antiforgery-token"))
+        return Response.json({ requestToken: "token", headerName: "X-CSRF" });
+      return Response.json("agent-id");
+    },
+  });
+
+  await agentApi.apply(api, "org-1", "sponsor-id");
+
+  const request = requests.at(-1)!;
+  assert.equal(request.url, "/api/organizations/org-1/agents/applications");
+  assert.equal(request.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(request.init?.body)), {
+    sponsorAgentId: "sponsor-id",
+  });
+});
+
 test("current referral link uses the current-Agent endpoint without a supplied Agent id", async () => {
   let requestedUrl = "";
   const api = new ApiClient({
@@ -117,5 +138,26 @@ test("binary-volume ledger uses the owned Agent finance route", async () => {
   assert.equal(
     requestedUrl,
     "/api/organizations/org-1/agents/agent-1/finance/binary-volume/entries?page=3&pageSize=20",
+  );
+});
+
+test("wallet transaction filters are sent to the server", async () => {
+  let requestedUrl = "";
+  const api = new ApiClient({
+    fetchImplementation: async (input) => {
+      requestedUrl = String(input);
+      return Response.json({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+    },
+  });
+
+  await agentApi.walletEntries(api, "org-1", "agent-1", 2, {
+    entryType: 4,
+    from: "2026-09-01T00:00:00.000Z",
+    to: "2026-09-30T23:59:59.999Z",
+  });
+
+  assert.equal(
+    requestedUrl,
+    "/api/organizations/org-1/agents/agent-1/wallet/entries?page=2&pageSize=20&entryType=4&from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-30T23%3A59%3A59.999Z",
   );
 });

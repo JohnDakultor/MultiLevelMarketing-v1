@@ -1,4 +1,4 @@
-using System.Text.Json;
+using modular_mlm.Application.Compensation;
 using modular_mlm.Domain.Compensation;
 
 namespace modular_mlm.Application.Compensation.Commands.UpdateCommissionPlan;
@@ -6,8 +6,6 @@ namespace modular_mlm.Application.Compensation.Commands.UpdateCommissionPlan;
 public sealed class UpdateCommissionPlanCommandValidator
     : AbstractValidator<UpdateCommissionPlanCommand>
 {
-    private const int MaximumRulesJsonLength = 10_000;
-
     public UpdateCommissionPlanCommandValidator()
     {
         RuleFor(command => command.OrganizationId).NotEmpty();
@@ -47,14 +45,14 @@ public sealed class UpdateCommissionPlanCommandValidator
 
         RuleFor(command => command.QualificationRulesJson)
             .NotEmpty()
-            .MaximumLength(MaximumRulesJsonLength)
-            .Must(BeJsonObjectOrArray)
-            .WithMessage("QualificationRulesJson must contain a JSON object or array.");
+            .MaximumLength(CommissionRuleJson.MaximumLength)
+            .Must(CommissionRuleJson.IsValidQualificationRules)
+            .WithMessage("Qualification rules must match the supported rule structure.");
         RuleFor(command => command.CapRulesJson)
             .NotEmpty()
-            .MaximumLength(MaximumRulesJsonLength)
-            .Must(BeJsonObjectOrArray)
-            .WithMessage("CapRulesJson must contain a JSON object or array.");
+            .MaximumLength(CommissionRuleJson.MaximumLength)
+            .Must(CommissionRuleJson.IsValidCapRules)
+            .WithMessage("Cap rules must contain a non-negative maximum amount when enabled.");
     }
 
     private static bool IsPercentage(UpdateCommissionPlanCommand command) =>
@@ -65,19 +63,4 @@ public sealed class UpdateCommissionPlanCommandValidator
         command.BinaryPairingEnabled
         && command.PairingCalculationType == PairingCalculationType.FixedPerPair;
 
-    private static bool BeJsonObjectOrArray(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        try
-        {
-            using var document = JsonDocument.Parse(value);
-            return document.RootElement.ValueKind is JsonValueKind.Object or JsonValueKind.Array;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
 }

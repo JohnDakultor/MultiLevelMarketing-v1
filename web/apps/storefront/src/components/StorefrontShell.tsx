@@ -9,8 +9,11 @@ import {
 } from "@modular-mlm/design-system";
 import { useOrganization } from "@modular-mlm/organization-context";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, type ReactNode } from "react";
 import { storefrontNavigation } from "../navigation/storefrontNavigation";
+import { StorefrontFooter } from "../features/shared/StorefrontPrimitives";
+import type { PublicOrganizationConfigDto } from "@modular-mlm/contracts";
 
 export function StorefrontShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -46,8 +49,8 @@ export function StorefrontShell({ children }: { children: ReactNode }) {
 
   const organization = organizationState.organization;
   const brand = {
-    name: organization?.storeTitle || organization?.name || "Marketplace",
-    contextLabel: organization?.name || "Storefront",
+    name: organization?.storeTitle || organization?.name || "Shop",
+    contextLabel: "Online store",
     logoUrl: organization?.logoUrl,
   };
 
@@ -58,31 +61,86 @@ export function StorefrontShell({ children }: { children: ReactNode }) {
       navigation={storefrontNavigation(authentication.user, organization)}
       currentPath={pathname}
       account={<StorefrontAccountAction />}
+      linkComponent={Link}
       footer={
-        organization
-          ? `${organization.name} · Prices shown in ${organization.currencyCode}`
-          : undefined
+        organization ? (
+          <StorefrontFooter
+            storeName={organization.storeTitle || organization.name}
+          />
+        ) : undefined
       }
     >
-      {organizationState.error && !organization && !isIdentityPage ? (
-        <ShellState>
-          <ErrorState
-            title="Storefront unavailable"
-            description="This hostname is not connected to an active organization."
-          />
-        </ShellState>
-      ) : requiresCustomer && authentication.isLoading ? (
-        <ShellState>
-          <Skeleton height="9rem" />
-        </ShellState>
-      ) : requiresCustomer && !authentication.isAuthenticated ? (
-        <ShellState>
-          <p role="status">Redirecting you to sign in…</p>
-        </ShellState>
-      ) : (
-        children
-      )}
+      <StorefrontRouteFrame
+        isIdentityPage={isIdentityPage}
+        organization={organization}
+      >
+        {organizationState.error && !organization && !isIdentityPage ? (
+          <ShellState>
+            <ErrorState
+              title="Storefront unavailable"
+              description="This shop is temporarily unavailable. Please try again later."
+            />
+          </ShellState>
+        ) : requiresCustomer && authentication.isLoading ? (
+          <ShellState>
+            <Skeleton height="9rem" />
+          </ShellState>
+        ) : requiresCustomer && !authentication.isAuthenticated ? (
+          <ShellState>
+            <p role="status">Redirecting you to sign in…</p>
+          </ShellState>
+        ) : (
+          children
+        )}
+      </StorefrontRouteFrame>
     </ApplicationShell>
+  );
+}
+
+function StorefrontRouteFrame({
+  isIdentityPage,
+  organization,
+  children,
+}: {
+  isIdentityPage: boolean;
+  organization: PublicOrganizationConfigDto | null;
+  children: ReactNode;
+}) {
+  if (!isIdentityPage)
+    return <div className="application-container">{children}</div>;
+
+  const storeName = organization?.storeTitle || organization?.name || "Shop";
+
+  return (
+    <div className="storefront-identity-stage">
+      <aside className="storefront-identity-brand" aria-label={storeName}>
+        <div className="storefront-identity-brand__content">
+          {organization?.logoUrl ? (
+            <span
+              className="storefront-identity-brand__logo"
+              style={{ backgroundImage: `url(${organization.logoUrl})` }}
+              aria-hidden
+            />
+          ) : (
+            <span className="storefront-identity-brand__mark" aria-hidden>
+              {storeName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <p className="storefront-kicker">Welcome to</p>
+          <h1>{storeName}</h1>
+          <p>
+            Sign in or create an account to manage delivery details, follow
+            orders, and complete checkout securely.
+          </p>
+        </div>
+        <div className="storefront-identity-brand__trust">
+          <span>Secure account</span>
+          <span>Live order status</span>
+          <span>Protected checkout</span>
+        </div>
+      </aside>
+      <section className="storefront-identity-panel">{children}</section>
+    </div>
   );
 }
 
@@ -95,16 +153,18 @@ function StorefrontAccountAction() {
   if (!authentication.user)
     return (
       <div className="storefront-auth-actions">
-        <a href="/sign-in">Sign in</a>
-        <a className="storefront-auth-actions__primary" href="/register">
+        <Link href="/sign-in">Sign in</Link>
+        <Link className="storefront-auth-actions__primary" href="/register">
           Create account
-        </a>
+        </Link>
       </div>
     );
 
   return (
     <>
-      <a href="/account">{authentication.user.displayName || "My account"}</a>
+      <Link href="/account">
+        {authentication.user.displayName || "My account"}
+      </Link>
       <Button
         variant="ghost"
         type="button"

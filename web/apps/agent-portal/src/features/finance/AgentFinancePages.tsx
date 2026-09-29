@@ -6,6 +6,11 @@ import {
   useFormSubmission,
 } from "@modular-mlm/api-client";
 import {
+  BinaryVolumeEntryType,
+  PayoutStatus,
+  PayoutVerificationStatus,
+} from "@modular-mlm/contracts";
+import {
   Alert,
   Button,
   Card,
@@ -16,17 +21,32 @@ import {
   InputField,
   PageHeader,
   SelectField,
+  StatsCard,
   useConfirmation,
 } from "@modular-mlm/design-system";
 import { useState, type FormEvent } from "react";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading, date, money } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import {
+  CommissionStatusBadge,
+  PayoutAccountStatusBadge,
+  PayoutStatusBadge,
+  binaryVolumeEntryTypeLabel,
+  commissionTypeLabel,
+  walletEntryTypeLabel,
+} from "../shared/status";
 
 export function EarningsPage() {
   const scope = useAgentScope();
   const [page, setPage] = useState(1);
   const [volumePage, setVolumePage] = useState(1);
+  const [volumeSide, setVolumeSide] = useState("");
+  const [volumeType, setVolumeType] = useState("");
+  const [volumeFrom, setVolumeFrom] = useState("");
+  const [volumeTo, setVolumeTo] = useState("");
+  const [pairingFrom, setPairingFrom] = useState(() => dateInputDaysAgo(90));
+  const [pairingTo, setPairingTo] = useState(() => dateInputDaysAgo(0));
   const [selectedCommissionId, setSelectedCommissionId] = useState<
     string | null
   >(null);
@@ -61,15 +81,38 @@ export function EarningsPage() {
         scope.organizationId,
         scope.agentId,
         volumePage,
+        {
+          side: volumeSide === "" ? undefined : Number(volumeSide),
+          entryType: volumeType === "" ? undefined : Number(volumeType),
+          from: volumeFrom ? startOfDay(volumeFrom) : undefined,
+          to: volumeTo ? endOfDay(volumeTo) : undefined,
+        },
         signal,
       ),
-    [scope.organizationId, scope.agentId, volumePage],
+    [
+      scope.organizationId,
+      scope.agentId,
+      volumePage,
+      volumeSide,
+      volumeType,
+      volumeFrom,
+      volumeTo,
+    ],
     scope.isReady,
   );
   const pairing = useApiQuery(
     (api, signal) =>
-      agentApi.pairingHistory(api, scope.organizationId, scope.agentId, signal),
-    [scope.organizationId, scope.agentId],
+      agentApi.pairingHistory(
+        api,
+        scope.organizationId,
+        scope.agentId,
+        {
+          periodStart: pairingFrom ? startOfDay(pairingFrom) : undefined,
+          periodEnd: pairingTo ? endOfDay(pairingTo) : undefined,
+        },
+        signal,
+      ),
+    [scope.organizationId, scope.agentId, pairingFrom, pairingTo],
     scope.isReady,
   );
   const commissionDetails = useApiQuery(
@@ -88,11 +131,29 @@ export function EarningsPage() {
     earnings.isLoading ||
     volume.isLoading ||
     commissions.isLoading ||
-    volumeLedger.isLoading
+    volumeLedger.isLoading ||
+    pairing.isLoading
   )
     return <Loading />;
-  if (earnings.error)
-    return <Failure error={earnings.error} retry={earnings.reload} />;
+  const loadError =
+    earnings.error ??
+    volume.error ??
+    commissions.error ??
+    volumeLedger.error ??
+    pairing.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          earnings.reload();
+          volume.reload();
+          commissions.reload();
+          volumeLedger.reload();
+          pairing.reload();
+        }}
+      />
+    );
   return (
     <div className="content-stack">
       <PageHeader
@@ -100,32 +161,84 @@ export function EarningsPage() {
         description="Summary totals are independent aggregates; history is a paged activity view."
       />
       <div className="metric-grid">
-        <Metric
+        <StatsCard
           label="Pending"
           value={money(earnings.data?.pendingAmount ?? 0, scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Available"
           value={money(earnings.data?.availableAmount ?? 0, scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Paid lifetime"
           value={money(earnings.data?.paidAmount ?? 0, scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Direct sales lifetime"
           value={money(earnings.data?.directSalesLifetime ?? 0, scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Left available BV"
           value={String(volume.data?.leftAvailable ?? 0)}
         />
-        <Metric
+        <StatsCard
           label="Right available BV"
           value={String(volume.data?.rightAvailable ?? 0)}
         />
       </div>
       <h2>Binary volume ledger</h2>
+      <section className="filter-panel" aria-label="Binary volume filters">
+        <SelectField
+          id="volume-side"
+          label="Side"
+          value={volumeSide}
+          onChange={(event) => {
+            setVolumeSide(event.target.value);
+            setVolumePage(1);
+          }}
+        >
+          <option value="">Both sides</option>
+          <option value="0">Left</option>
+          <option value="1">Right</option>
+        </SelectField>
+        <SelectField
+          id="volume-type"
+          label="Entry type"
+          value={volumeType}
+          onChange={(event) => {
+            setVolumeType(event.target.value);
+            setVolumePage(1);
+          }}
+        >
+          <option value="">All types</option>
+          {Object.values(BinaryVolumeEntryType).map((value) => (
+            <option key={value} value={value}>
+              {binaryVolumeEntryTypeLabel(value)}
+            </option>
+          ))}
+        </SelectField>
+        <InputField
+          id="volume-from"
+          label="From"
+          type="date"
+          value={volumeFrom}
+          onChange={(event) => {
+            setVolumeFrom(event.target.value);
+            setVolumePage(1);
+          }}
+        />
+        <InputField
+          id="volume-to"
+          label="To"
+          type="date"
+          min={volumeFrom || undefined}
+          value={volumeTo}
+          onChange={(event) => {
+            setVolumeTo(event.target.value);
+            setVolumePage(1);
+          }}
+        />
+      </section>
       {volumeLedger.error ? (
         <Failure error={volumeLedger.error} retry={volumeLedger.reload} />
       ) : !volumeLedger.data?.items.length ? (
@@ -149,7 +262,11 @@ export function EarningsPage() {
               header: "Side",
               cell: (row) => (row.side === 0 ? "Left" : "Right"),
             },
-            { key: "type", header: "Type", cell: (row) => row.entryType },
+            {
+              key: "type",
+              header: "Type",
+              cell: (row) => binaryVolumeEntryTypeLabel(row.entryType),
+            },
             {
               key: "source",
               header: "Source",
@@ -192,7 +309,11 @@ export function EarningsPage() {
               header: "Created",
               cell: (row) => date(row.created),
             },
-            { key: "type", header: "Type", cell: (row) => row.type },
+            {
+              key: "type",
+              header: "Type",
+              cell: (row) => commissionTypeLabel(row.type),
+            },
             {
               key: "base",
               header: "Base",
@@ -204,7 +325,11 @@ export function EarningsPage() {
               align: "end",
               cell: (row) => money(row.amount, scope.currency),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => <CommissionStatusBadge value={row.status} />,
+            },
             {
               key: "details",
               header: "",
@@ -238,6 +363,23 @@ export function EarningsPage() {
         </Button>
       </div>
       <h2>Binary pairing history</h2>
+      <section className="filter-panel" aria-label="Pairing period filters">
+        <InputField
+          id="pairing-from"
+          label="Period start"
+          type="date"
+          value={pairingFrom}
+          onChange={(event) => setPairingFrom(event.target.value)}
+        />
+        <InputField
+          id="pairing-to"
+          label="Period end"
+          type="date"
+          min={pairingFrom}
+          value={pairingTo}
+          onChange={(event) => setPairingTo(event.target.value)}
+        />
+      </section>
       {!pairing.data?.length ? (
         <EmptyState
           title="No pairing runs"
@@ -303,11 +445,13 @@ export function EarningsPage() {
             </div>
             <div>
               <dt>Type</dt>
-              <dd>{commissionDetails.data.type}</dd>
+              <dd>{commissionTypeLabel(commissionDetails.data.type)}</dd>
             </div>
             <div>
               <dt>Status</dt>
-              <dd>{commissionDetails.data.status}</dd>
+              <dd>
+                <CommissionStatusBadge value={commissionDetails.data.status} />
+              </dd>
             </div>
             <div>
               <dt>Base amount</dt>
@@ -360,14 +504,24 @@ export function WalletPage() {
         scope.organizationId,
         scope.agentId,
         page,
+        {},
         signal,
       ),
     [scope.organizationId, scope.agentId, page],
     scope.isReady,
   );
   if (wallet.isLoading || entries.isLoading) return <Loading />;
-  if (wallet.error)
-    return <Failure error={wallet.error} retry={wallet.reload} />;
+  const loadError = wallet.error ?? entries.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          wallet.reload();
+          entries.reload();
+        }}
+      />
+    );
   return (
     <div className="content-stack">
       <PageHeader
@@ -375,28 +529,28 @@ export function WalletPage() {
         description="Wallet entries are immutable. Balances are calculated by the backend ledger."
       />
       <div className="metric-grid">
-        <Metric
+        <StatsCard
           label="Available"
           value={money(
             wallet.data?.available ?? 0,
             wallet.data?.currency ?? scope.currency,
           )}
         />
-        <Metric
+        <StatsCard
           label="Pending"
           value={money(
             wallet.data?.pending ?? 0,
             wallet.data?.currency ?? scope.currency,
           )}
         />
-        <Metric
+        <StatsCard
           label="Held"
           value={money(
             wallet.data?.held ?? 0,
             wallet.data?.currency ?? scope.currency,
           )}
         />
-        <Metric
+        <StatsCard
           label="Net"
           value={money(
             wallet.data?.net ?? 0,
@@ -420,7 +574,11 @@ export function WalletPage() {
               header: "Created",
               cell: (row) => date(row.createdAt),
             },
-            { key: "type", header: "Type", cell: (row) => row.type },
+            {
+              key: "type",
+              header: "Type",
+              cell: (row) => walletEntryTypeLabel(row.type),
+            },
             { key: "source", header: "Source", cell: (row) => row.sourceType },
             {
               key: "available",
@@ -462,7 +620,10 @@ export function PayoutsPage() {
   const api = useApiClient();
   const { confirm } = useConfirmation();
   const payoutFeedback = useFormSubmission();
+  const accountActionFeedback = useFormSubmission();
+  const cancellationFeedback = useFormSubmission();
   const scope = useAgentScope();
+  const [page, setPage] = useState(1);
   const [selectedPayoutId, setSelectedPayoutId] = useState<string | null>(null);
   const accounts = useApiQuery(
     (client, signal) =>
@@ -477,14 +638,25 @@ export function PayoutsPage() {
   );
   const payouts = useApiQuery(
     (client, signal) =>
-      agentApi.payouts(client, scope.organizationId, scope.agentId, 1, signal),
-    [scope.organizationId, scope.agentId],
+      agentApi.payouts(
+        client,
+        scope.organizationId,
+        scope.agentId,
+        page,
+        signal,
+      ),
+    [scope.organizationId, scope.agentId, page],
     scope.isReady,
   );
   const wallet = useApiQuery(
     (client, signal) =>
       agentApi.wallet(client, scope.organizationId, scope.agentId, signal),
     [scope.organizationId, scope.agentId],
+    scope.isReady,
+  );
+  const context = useApiQuery(
+    (client, signal) => agentApi.context(client, scope.organizationId, signal),
+    [scope.organizationId],
     scope.isReady,
   );
   const payoutDetails = useApiQuery(
@@ -500,12 +672,30 @@ export function PayoutsPage() {
     scope.isReady && selectedPayoutId !== null,
   );
   const [message, setMessage] = useState("");
-  if (accounts.isLoading || payouts.isLoading || wallet.isLoading)
+  if (
+    accounts.isLoading ||
+    payouts.isLoading ||
+    wallet.isLoading ||
+    context.isLoading
+  )
     return <Loading />;
-  if (accounts.error)
-    return <Failure error={accounts.error} retry={accounts.reload} />;
+  const loadError =
+    accounts.error ?? payouts.error ?? wallet.error ?? context.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          accounts.reload();
+          payouts.reload();
+          wallet.reload();
+          context.reload();
+        }}
+      />
+    );
   async function request(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!context.data?.canRequestPayout) return;
     const data = new FormData(event.currentTarget);
     const requested = await payoutFeedback.submit(async () => {
       await agentApi.requestPayout(
@@ -530,6 +720,22 @@ export function PayoutsPage() {
         description="Only verified payout accounts and server-confirmed available wallet value can be used."
       />
       {message && <Alert title={message} tone="info" />}
+      {!!accountActionFeedback.formErrors.length && (
+        <Alert title="Payout account action failed" tone="danger">
+          {accountActionFeedback.formErrors.join(" ")}
+        </Alert>
+      )}
+      {!!cancellationFeedback.formErrors.length && (
+        <Alert title="Payout cancellation failed" tone="danger">
+          {cancellationFeedback.formErrors.join(" ")}
+        </Alert>
+      )}
+      {!context.data?.canRequestPayout && (
+        <Alert title="Payout requests are currently unavailable" tone="warning">
+          Your Agent status, wallet eligibility, or organization settings do not
+          currently permit a payout request.
+        </Alert>
+      )}
       <div className="detail-grid">
         <Card>
           <h2>Request payout</h2>
@@ -573,9 +779,13 @@ export function PayoutsPage() {
             <Button
               type="submit"
               isLoading={payoutFeedback.isSubmitting}
-              disabled={payoutFeedback.isSubmitting}
+              disabled={
+                payoutFeedback.isSubmitting || !context.data?.canRequestPayout
+              }
             >
-              Request payout
+              {context.data?.canRequestPayout
+                ? "Request payout"
+                : "Payout unavailable"}
             </Button>
           </form>
         </Card>
@@ -587,53 +797,81 @@ export function PayoutsPage() {
         />
       </div>
       <h2>Accounts</h2>
-      {accounts.data?.map((account) => (
-        <Card key={account.id} className="action-row">
-          <div>
-            <strong>
-              {account.method} · {account.maskedAccountData}
-            </strong>
-            <p>
-              {account.bankCode} · {account.rail} · Verification{" "}
-              {account.verificationStatus}
-            </p>
-          </div>
-          <div>
-            {account.verificationStatus === 0 && (
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  await agentApi.submitPayoutAccount(
-                    api,
-                    scope.organizationId,
-                    scope.agentId,
-                    account.id,
-                  );
-                  accounts.reload();
-                }}
-              >
-                Submit for verification
-              </Button>
-            )}{" "}
-            {!account.isDefault && (
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  await agentApi.makeDefaultPayoutAccount(
-                    api,
-                    scope.organizationId,
-                    scope.agentId,
-                    account.id,
-                  );
-                  accounts.reload();
-                }}
-              >
-                Make default
-              </Button>
-            )}
-          </div>
-        </Card>
-      ))}
+      {!accounts.data?.length ? (
+        <EmptyState
+          title="No payout accounts"
+          description="Register an account before requesting a payout."
+        />
+      ) : (
+        accounts.data.map((account) => (
+          <Card key={account.id} className="action-row">
+            <div>
+              <strong>
+                {account.method} · {account.maskedAccountData}
+              </strong>
+              <p>
+                {account.bankCode} · {account.rail} · Verification{" "}
+                <PayoutAccountStatusBadge value={account.verificationStatus} />
+              </p>
+            </div>
+            <div>
+              {account.verificationStatus ===
+                PayoutVerificationStatus.unverified && (
+                <Button
+                  variant="secondary"
+                  isLoading={accountActionFeedback.isSubmitting}
+                  disabled={accountActionFeedback.isSubmitting}
+                  onClick={async () => {
+                    const saved = await accountActionFeedback.submit(
+                      () =>
+                        agentApi.submitPayoutAccount(
+                          api,
+                          scope.organizationId,
+                          scope.agentId,
+                          account.id,
+                        ),
+                      "Payout account submitted for verification.",
+                    );
+                    if (saved) {
+                      setMessage("Payout account submitted for verification.");
+                      accounts.reload();
+                    }
+                  }}
+                >
+                  Submit for verification
+                </Button>
+              )}{" "}
+              {!account.isDefault &&
+                account.verificationStatus ===
+                  PayoutVerificationStatus.verified && (
+                  <Button
+                    variant="ghost"
+                    isLoading={accountActionFeedback.isSubmitting}
+                    disabled={accountActionFeedback.isSubmitting}
+                    onClick={async () => {
+                      const saved = await accountActionFeedback.submit(
+                        () =>
+                          agentApi.makeDefaultPayoutAccount(
+                            api,
+                            scope.organizationId,
+                            scope.agentId,
+                            account.id,
+                          ),
+                        "Default payout account updated.",
+                      );
+                      if (saved) {
+                        setMessage("Default payout account updated.");
+                        accounts.reload();
+                      }
+                    }}
+                  >
+                    Make default
+                  </Button>
+                )}
+            </div>
+          </Card>
+        ))
+      )}
       <h2>History</h2>
       {!payouts.data?.length ? (
         <EmptyState
@@ -656,7 +894,11 @@ export function PayoutsPage() {
               header: "Amount",
               cell: (row) => money(row.amount, row.currency),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => <PayoutStatusBadge value={row.status} />,
+            },
             {
               key: "reference",
               header: "Reference",
@@ -673,7 +915,9 @@ export function PayoutsPage() {
                   >
                     View details
                   </Button>
-                  {row.status <= 2 ? (
+                  {row.status === PayoutStatus.requested ||
+                  row.status === PayoutStatus.underReview ||
+                  row.status === PayoutStatus.approved ? (
                     <Button
                       variant="danger"
                       onClick={async () => {
@@ -685,14 +929,24 @@ export function PayoutsPage() {
                           }))
                         )
                           return;
-                        await agentApi.cancelPayout(
-                          api,
-                          scope.organizationId,
-                          scope.agentId,
-                          row.id,
+                        const cancelled = await cancellationFeedback.submit(
+                          () =>
+                            agentApi.cancelPayout(
+                              api,
+                              scope.organizationId,
+                              scope.agentId,
+                              row.id,
+                            ),
+                          "Payout request cancelled.",
                         );
-                        payouts.reload();
+                        if (cancelled) {
+                          setMessage("Payout request cancelled.");
+                          payouts.reload();
+                          wallet.reload();
+                        }
                       }}
+                      isLoading={cancellationFeedback.isSubmitting}
+                      disabled={cancellationFeedback.isSubmitting}
                     >
                       Cancel
                     </Button>
@@ -703,6 +957,23 @@ export function PayoutsPage() {
           ]}
         />
       )}
+      <div className="pagination-row">
+        <Button
+          variant="secondary"
+          disabled={page === 1}
+          onClick={() => setPage((value) => value - 1)}
+        >
+          Previous
+        </Button>
+        <span>Page {page}</span>
+        <Button
+          variant="secondary"
+          disabled={(payouts.data?.length ?? 0) < 20}
+          onClick={() => setPage((value) => value + 1)}
+        >
+          Next
+        </Button>
+      </div>
       <Dialog
         isOpen={selectedPayoutId !== null}
         title="Payout details"
@@ -723,7 +994,9 @@ export function PayoutsPage() {
             </div>
             <div>
               <dt>Status</dt>
-              <dd>{payoutDetails.data.status}</dd>
+              <dd>
+                <PayoutStatusBadge value={payoutDetails.data.status} />
+              </dd>
             </div>
             <div>
               <dt>Requested</dt>
@@ -794,13 +1067,15 @@ function PayoutAccountForm({ onSaved }: { onSaved(): void }) {
           generalErrors={feedback.formErrors}
           id={feedback.errorSummaryId}
         />
-        <InputField
+        <SelectField
           name="method"
           label="Method"
-          placeholder="bank_account"
           required
           error={feedback.fieldError("method")}
-        />
+        >
+          <option value="">Select method</option>
+          <option value="bank_account">Bank account</option>
+        </SelectField>
         <InputField
           name="accountName"
           label="Account name"
@@ -819,13 +1094,16 @@ function PayoutAccountForm({ onSaved }: { onSaved(): void }) {
           required
           error={feedback.fieldError("bankCode")}
         />
-        <InputField
+        <SelectField
           name="rail"
           label="Transfer rail"
-          placeholder="instapay"
           required
           error={feedback.fieldError("rail")}
-        />
+        >
+          <option value="">Select transfer rail</option>
+          <option value="instapay">InstaPay</option>
+          <option value="pesonet">PESONet</option>
+        </SelectField>
         <Button
           type="submit"
           isLoading={feedback.isSubmitting}
@@ -837,11 +1115,17 @@ function PayoutAccountForm({ onSaved }: { onSaved(): void }) {
     </Card>
   );
 }
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <span>{label}</span>
-      <strong className="metric-value">{value}</strong>
-    </Card>
-  );
+
+function dateInputDaysAgo(days: number) {
+  const value = new Date();
+  value.setDate(value.getDate() - days);
+  return value.toISOString().slice(0, 10);
+}
+
+function startOfDay(value: string) {
+  return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function endOfDay(value: string) {
+  return new Date(`${value}T23:59:59.999`).toISOString();
 }

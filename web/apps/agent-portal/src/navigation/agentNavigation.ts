@@ -41,6 +41,12 @@ const navigation: readonly AgentNavigationItem[] = [
     feature: "walletEnabled",
   },
   {
+    href: "/transactions",
+    label: "Transactions",
+    capability: Capabilities.agentWorkspace,
+    feature: "walletEnabled",
+  },
+  {
     href: "/payouts",
     label: "Payouts",
     capability: Capabilities.agentWorkspace,

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using modular_mlm.Domain.Constants;
 using modular_mlm.Domain.Organizations;
 
 namespace modular_mlm.Application.FunctionalTests.Authorization;
@@ -91,6 +92,39 @@ public sealed class RouteAuthorizationTests : TestBase
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Test]
+    public async Task PlatformAdministratorCanAccessTenantFinancialAndAdministratorRoutes()
+    {
+        var organization = Organization.Create(
+            "Platform Managed",
+            $"platform-managed-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        await AddAsync(organization);
+        var email = $"platform-{Guid.NewGuid():N}@local";
+        const string password = "Testing1234!";
+        await RunAsUserAsync(email, password, [Roles.PlatformAdministrator]);
+        using var client = FunctionalTestSetup.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await LoginAsync(client, email, password)
+        );
+
+        var paths = new[]
+        {
+            $"/api/organizations/{organization.Id}/admin/wallets",
+            $"/api/organizations/{organization.Id}/admin/commissions",
+            $"/api/organizations/{organization.Id}/admin/payouts",
+            $"/api/organizations/{organization.Id}/administrators",
+        };
+
+        foreach (var path in paths)
+        {
+            using var response = await client.GetAsync(path);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK, path);
+        }
     }
 
     private static async Task<string> LoginAsync(HttpClient client, string email, string password)

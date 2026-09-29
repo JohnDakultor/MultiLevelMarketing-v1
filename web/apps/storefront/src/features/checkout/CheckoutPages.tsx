@@ -12,9 +12,11 @@ import {
 } from "@modular-mlm/design-system";
 import { useOrganization } from "@modular-mlm/organization-context";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { addressInput, storefrontApi } from "../api/storefrontApi";
 import { ScreenError, ScreenLoading, money } from "../shared/ScreenState";
+import { CheckoutSteps } from "../shared/StorefrontPrimitives";
 
 export function CheckoutPage() {
   const api = useApiClient();
@@ -37,18 +39,19 @@ export function CheckoutPage() {
   const [error, setError] = useState("");
   if (!auth.user)
     return (
-      <div className="content-stack">
+      <div className="content-stack storefront-checkout-page">
         <PageHeader title="Checkout" />
+        <CheckoutSteps current={1} />
         <EmptyState
           title="Sign in to checkout"
-          description="Your anonymous cart will be resolved by the backend after authentication."
+          description="Sign in to continue with the items already in your cart."
           action={
-            <a
+            <Link
               className="ds-button ds-button--primary"
               href="/sign-in?returnTo=%2Fcheckout"
             >
               Sign in
-            </a>
+            </Link>
           }
         />
       </div>
@@ -70,19 +73,27 @@ export function CheckoutPage() {
   const billing =
     addresses.data?.find((address) => address.id === billingId) ?? shipping;
   return (
-    <div className="content-stack">
+    <div className="content-stack storefront-checkout-page">
       <PageHeader
+        eyebrow="Secure checkout"
         title="Checkout"
-        description="Review the server-authoritative cart and choose saved delivery details."
+        description="Choose your delivery details and review your order."
       />
-      <div className="detail-grid">
-        <Card>
-          <h2>Delivery</h2>
+      <CheckoutSteps current={1} />
+      <div className="storefront-checkout-layout">
+        <Card className="storefront-checkout-panel">
+          <div className="storefront-numbered-heading">
+            <span>1</span>
+            <div>
+              <h2>Delivery details</h2>
+              <p>Choose where this order should be delivered and billed.</p>
+            </div>
+          </div>
           {!addresses.data?.length ? (
             <EmptyState
               title="Add an address first"
               description="Checkout uses a complete saved address snapshot."
-              action={<a href="/account/addresses">Manage addresses</a>}
+              action={<Link href="/account/addresses">Manage addresses</Link>}
             />
           ) : (
             <>
@@ -114,8 +125,8 @@ export function CheckoutPage() {
             </>
           )}
         </Card>
-        <Card>
-          <h2>Order summary</h2>
+        <Card className="storefront-order-summary storefront-checkout-summary">
+          <h2>Your order</h2>
           {cart.data.items.map((item) => (
             <div className="summary-line" key={item.id}>
               <span>
@@ -173,6 +184,10 @@ export function CheckoutPage() {
           >
             Continue to secure payment
           </Button>
+          <p className="storefront-secure-note">
+            You will continue to a secure payment page. Your card or wallet
+            details are not collected here.
+          </p>
         </Card>
       </div>
     </div>
@@ -195,7 +210,7 @@ export function PaymentReturnPage() {
       <EmptyState
         title="Payment return is incomplete"
         description="No order was supplied. Open your order history to check payment status."
-        action={<a href="/account/orders">View orders</a>}
+        action={<Link href="/account/orders">View orders</Link>}
       />
     );
   if (order.isLoading) return <ScreenLoading />;
@@ -208,35 +223,32 @@ export function PaymentReturnPage() {
       ? "Payment cancelled"
       : "Payment pending";
   return (
-    <div className="content-stack">
+    <div className="content-stack storefront-payment-result">
+      <CheckoutSteps current={3} />
       <PageHeader
         title={title}
         description={`Order ${order.data?.orderNumber ?? orderId}`}
       />
       <Alert
-        title={
-          paid
-            ? "Your order is paid"
-            : "We are waiting for provider confirmation"
-        }
+        title={paid ? "Your order is paid" : "We are confirming your payment"}
         tone={
           paid ? "success" : returnedAs === "cancelled" ? "warning" : "info"
         }
       >
         {paid
-          ? "You can follow fulfillment from order details."
-          : "Refreshing this page is safe. The displayed status always comes from the order API, not the redirect URL."}
+          ? "You can follow delivery progress from your order details."
+          : "Refreshing this page is safe. The latest order status will appear here."}
       </Alert>
       <div>
         <Button variant="secondary" onClick={order.reload}>
           Refresh status
         </Button>{" "}
-        <a
+        <Link
           className="ds-button ds-button--primary"
           href={`/account/orders/${orderId}`}
         >
           View order
-        </a>
+        </Link>
       </div>
     </div>
   );

@@ -17,7 +17,9 @@ public sealed class AdminWallets : IEndpointGroup
 
     public static void Map(RouteGroupBuilder group)
     {
-        group.RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
+        group.RequireAuthorization(policy =>
+            policy.RequireRole(Roles.Administrator, Roles.PlatformAdministrator)
+        );
         group.RequireRateLimiting(RateLimitPolicyNames.Financial);
         group.MapGet(GetWallets);
         group.MapGet(GetEntries, "{agentId:guid}/entries");
@@ -55,7 +57,9 @@ public sealed class AdminCommissions : IEndpointGroup
 
     public static void Map(RouteGroupBuilder group)
     {
-        group.RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
+        group.RequireAuthorization(policy =>
+            policy.RequireRole(Roles.Administrator, Roles.PlatformAdministrator)
+        );
         group.RequireRateLimiting(RateLimitPolicyNames.Financial);
         group.MapGet(GetLedger);
     }

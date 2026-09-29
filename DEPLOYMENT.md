@@ -9,10 +9,14 @@ Create GitHub environments named `uat` and `production`. Define these variables 
 - `AZURE_CLIENT_ID`: application/client ID of the Azure workload identity.
 - `AZURE_TENANT_ID`: Microsoft Entra tenant ID.
 - `AZURE_SUBSCRIPTION_ID`: target subscription ID.
-- `AZURE_LOCATION`: Azure region, for example `uaenorth`.
+- `AZURE_LOCATION`: Azure region, for example `eastasia`.
 - `AZURE_RESOURCE_GROUP`: dedicated resource group, for example `rg-modular-mlm-uat`.
 - `ORGANIZATION_SLUG`: bootstrap tenant slug, for example `default`.
 - `SEED_ADMINISTRATOR_EMAIL`: email address for the first platform administrator.
+- `PUBLIC_API_BASE_URL`: public API origin, without a trailing slash.
+- `PUBLIC_ADMIN_BASE_URL`: public Admin Portal origin, without a trailing slash.
+- `PUBLIC_AGENT_BASE_URL`: public Agent Portal origin, without a trailing slash.
+- `PUBLIC_STOREFRONT_BASE_URL`: public Storefront origin, without a trailing slash.
 
 Define `SEED_ADMINISTRATOR_PASSWORD` as an environment **secret**. The Aspire
 deployment passes it to the migration job as a secret parameter; it is not built
@@ -28,11 +32,44 @@ The AppHost provisions Azure Container Apps for the API and three Next.js portal
 
 The workflow validates the full backend and frontend, deploys the infrastructure and applications, then starts the `database-migrator` job and waits for it to succeed. Aspire deployment state is cached separately for UAT and production.
 
+For published environments the AppHost derives the following runtime settings from
+the public URL variables. UAT and Production startup validation rejects loopback or
+non-HTTPS values; localhost remains valid only in Development.
+
+- `PayMongo__PayoutCallbackUrl=<PUBLIC_API_BASE_URL>/api/webhooks/paymongo/transfers`
+- `AdministratorInvitations__AcceptanceBaseUrl=<PUBLIC_ADMIN_BASE_URL>/invitations/accept`
+- `IdentitySecurity__PasswordResetBaseUrl=<PUBLIC_STOREFRONT_BASE_URL>/reset-password`
+
+## UAT real-stack gate
+
+After deployment and migration, the `verify-uat` job runs the guarded Playwright
+suite against the public Container Apps. Configure these UAT GitHub Environment
+variables with disposable seeded test data:
+
+- `E2E_CUSTOMER_EMAIL`, `E2E_AGENT_EMAIL`, `E2E_ADMIN_EMAIL`
+- `E2E_FOREIGN_ORGANIZATION_ID`, `E2E_REFERRAL_CODE`, `E2E_PRODUCT_SLUG`
+- `E2E_PAID_ORDER_ID`, `E2E_CANCELLABLE_ORDER_ID`, `E2E_REFUNDABLE_ORDER_ID`
+- `E2E_PAYOUT_AMOUNT`, `E2E_PENDING_AGENT_CODE`
+- `E2E_ADMIN_REFUNDABLE_ORDER_NUMBER`, `E2E_ADMIN_PAYMENT_REFUND_AMOUNT`
+- `E2E_UNPLACED_AGENT_CODE`, `E2E_PLACEMENT_PARENT_AGENT_CODE`
+- `E2E_PENDING_PAYOUT_ACCOUNT_AGENT_CODE`
+
+Configure `E2E_CUSTOMER_PASSWORD`, `E2E_AGENT_PASSWORD`, and `E2E_ADMIN_PASSWORD`
+as UAT GitHub Environment secrets. Never point this job at Production; the workflow
+explicitly limits it to UAT because the suite creates and mutates business records.
+The same suite can be run manually with `E2E_REAL_STACK=1 npm run test:e2e:real`
+after exporting the public URLs and seeded values above.
+
 ## Key Vault configuration
 
 The API loads the provisioned vault through its managed identity. Add runtime secrets using Key Vault names with `--` in place of the .NET configuration colon, for example `PayMongo--SecretKey`, `PayMongo--WebhookSecret`, `Email--Smtp--UserName`, and `Email--Smtp--Password`. Do not store these values in the repository or GitHub workflow file.
 
 The Data Protection key ring is kept in the private `data-protection/keys.xml` blob. The migration job creates that blob before normal local orchestration starts, and all API replicas use the same key ring so authentication and antiforgery cookies survive restarts and scale-out.
+
+The separate `marketplace-assets` container allows anonymous read access to individual
+blobs (not container listing) because published branding and product images are public
+Storefront assets. Upload and delete access still requires the API managed identity;
+the `data-protection` container remains private.
 
 ## Local Azure deployment
 
@@ -42,5 +79,8 @@ The Data Protection key ring is kept in the private `data-protection/keys.xml` b
 $env:Azure__SubscriptionId = "<subscription-id>"
 $env:Azure__Location = "uaenorth"
 $env:Azure__ResourceGroup = "rg-modular-mlm-uat"
+$env:PUBLIC_API_BASE_URL = "https://<api-host>"
+$env:PUBLIC_ADMIN_BASE_URL = "https://<admin-host>"
+$env:PUBLIC_STOREFRONT_BASE_URL = "https://<storefront-host>"
 aspire deploy --apphost src/AppHost/AppHost.csproj --environment uat
 ```

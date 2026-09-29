@@ -1,13 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { requireRealStack, requiredEnvironment, signIn } from "./realStack";
 
-test("Customer cannot open the Agent workspace", async ({ page }, testInfo) => {
+test("Customer sees Agent onboarding instead of Agent workspace data", async ({
+  page,
+}, testInfo) => {
   requireRealStack(testInfo, "agent-portal");
   await signIn(page, "E2E_CUSTOMER_EMAIL", "E2E_CUSTOMER_PASSWORD");
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Access denied" }),
+    page.getByRole("heading", {
+      name: /Apply to join|application is being handled/,
+    }),
   ).toBeVisible();
+  await expect(page.getByText(/Storefront/)).toHaveCount(0);
 });
 
 test("Customer and Agent cannot open the Administrator workspace", async ({

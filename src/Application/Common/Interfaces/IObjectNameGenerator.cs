@@ -9,4 +9,10 @@ public interface IObjectNameGenerator
         BrandingAssetKind assetKind,
         string safeExtension
     );
+
+    string CreateProductImageObjectKey(
+        Guid organizationId,
+        Guid productId,
+        string safeExtension
+    );
 }

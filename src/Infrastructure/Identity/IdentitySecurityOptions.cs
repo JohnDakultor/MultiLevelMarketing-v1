@@ -15,10 +15,8 @@ public sealed class IdentitySecurityOptions
     public static bool IsValid(IdentitySecurityOptions options) =>
         options.RefreshTokenLifetimeDays is >= 1 and <= 90
         && options.MaximumActiveSessions is >= 1 and <= 100
-        && options.PasswordResetBaseUrl.IsAbsoluteUri
-        && (
-            options.PasswordResetBaseUrl.Scheme == Uri.UriSchemeHttp
-            || options.PasswordResetBaseUrl.Scheme == Uri.UriSchemeHttps
-        )
-        && string.IsNullOrEmpty(options.PasswordResetBaseUrl.UserInfo);
+        && ExternalApplicationUri.IsHttp(options.PasswordResetBaseUrl);
+
+    public static bool IsValidForDeployment(IdentitySecurityOptions options) =>
+        IsValid(options) && ExternalApplicationUri.IsPublicHttps(options.PasswordResetBaseUrl);
 }

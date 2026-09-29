@@ -7,8 +7,8 @@ import { StorefrontProviders } from "./providers";
 import { StorefrontShell } from "../components/StorefrontShell";
 
 export const metadata: Metadata = {
-  title: "Marketplace",
-  description: "Organization storefront and customer account.",
+  title: "Shop",
+  description: "Browse products, place orders, and manage your account.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };

@@ -1,6 +1,7 @@
 using modular_mlm.Application.Common.Auditing;
 using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Application.Common.Interfaces;
+using modular_mlm.Application.Common.Persistence;
 using modular_mlm.Domain.Organizations;
 
 namespace modular_mlm.Application.Organizations.Commands.ConfigureOrganizationDomain;
@@ -8,7 +9,8 @@ namespace modular_mlm.Application.Organizations.Commands.ConfigureOrganizationDo
 public sealed class ConfigureOrganizationDomainCommandHandler(
     IApplicationDbContext db,
     IAuditWriter auditWriter,
-    TimeProvider timeProvider
+    TimeProvider timeProvider,
+    IDatabaseExceptionClassifier databaseExceptionClassifier
 ) : IRequestHandler<ConfigureOrganizationDomainCommand, Guid>
 {
     public async Task<Guid> Handle(
@@ -45,6 +47,11 @@ public sealed class ConfigureOrganizationDomainCommandHandler(
             timeProvider.GetUtcNow()
         );
 
+        // The aggregate exposes a read-only domain collection. Explicitly mark a newly
+        // configured child as Added so EF never infers Modified from its client-generated key.
+        if (existing is null)
+            db.OrganizationDomains.Add(domain);
+
         if (existing is not null && wasPrimary == domain.IsPrimary)
             return domain.Id;
 
@@ -67,7 +74,18 @@ public sealed class ConfigureOrganizationDomainCommandHandler(
             Serialize(domain),
             reason: null
         );
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception)
+            when (databaseExceptionClassifier.IsUniqueConstraintViolation(
+                exception,
+                DatabaseConstraintNames.OrganizationDomainHostName
+            ))
+        {
+            throw new ConflictException("The hostname is already assigned to an organization.");
+        }
         return domain.Id;
     }
 

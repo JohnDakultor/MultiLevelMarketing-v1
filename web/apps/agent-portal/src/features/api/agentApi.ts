@@ -35,6 +35,15 @@ const agent = (organizationId: string, agentId: string) =>
   `${org(organizationId)}/agents/${agentId}`;
 
 export const agentApi = {
+  apply: (
+    api: ApiClient,
+    organizationId: string,
+    sponsorAgentId: string | null,
+  ) =>
+    api.request<string>(`${org(organizationId)}/agents/applications`, {
+      method: "POST",
+      body: { sponsorAgentId },
+    }),
   application: (api: ApiClient, organizationId: string, signal?: AbortSignal) =>
     api.request<AgentApplicationDto>(
       `${org(organizationId)}/agent/application`,
@@ -144,12 +153,19 @@ export const agentApi = {
     api: ApiClient,
     organizationId: string,
     page: number,
+    filters: { status?: number; from?: string; to?: string } = {},
     signal?: AbortSignal,
-  ) =>
-    api.request<AttributedOrdersPageDto>(
-      `${org(organizationId)}/agent/sales?page=${page}&pageSize=20`,
+  ) => {
+    const query = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (filters.status !== undefined)
+      query.set("status", String(filters.status));
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    return api.request<AttributedOrdersPageDto>(
+      `${org(organizationId)}/agent/sales?${query}`,
       { signal },
-    ),
+    );
+  },
   saleDetails: (
     api: ApiClient,
     organizationId: string,
@@ -164,12 +180,17 @@ export const agentApi = {
     api: ApiClient,
     organizationId: string,
     page: number,
+    filters: { from?: string; to?: string } = {},
     signal?: AbortSignal,
-  ) =>
-    api.request<AgentProductSalesPageDto>(
-      `${org(organizationId)}/agent/sales/products?page=${page}&pageSize=20`,
+  ) => {
+    const query = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    return api.request<AgentProductSalesPageDto>(
+      `${org(organizationId)}/agent/sales/products?${query}`,
       { signal },
-    ),
+    );
+  },
   earnings: (
     api: ApiClient,
     organizationId: string,
@@ -217,23 +238,37 @@ export const agentApi = {
     organizationId: string,
     agentId: string,
     page: number,
+    filters: {
+      from?: string;
+      to?: string;
+      side?: number;
+      entryType?: number;
+    } = {},
     signal?: AbortSignal,
-  ) =>
-    api.request<BinaryVolumeLedgerPageDto>(
-      `${agent(organizationId, agentId)}/finance/binary-volume/entries?page=${page}&pageSize=20`,
+  ) => {
+    const query = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    if (filters.side !== undefined) query.set("side", String(filters.side));
+    if (filters.entryType !== undefined)
+      query.set("entryType", String(filters.entryType));
+    return api.request<BinaryVolumeLedgerPageDto>(
+      `${agent(organizationId, agentId)}/finance/binary-volume/entries?${query}`,
       { signal },
-    ),
+    );
+  },
   pairingHistory: (
     api: ApiClient,
     organizationId: string,
     agentId: string,
+    filters: { periodStart?: string; periodEnd?: string } = {},
     signal?: AbortSignal,
   ) => {
     const periodEnd = new Date();
     const periodStart = new Date(periodEnd);
     periodStart.setDate(periodStart.getDate() - 90);
     return api.request<BinaryPairingRunDto[]>(
-      `${agent(organizationId, agentId)}/pairing?periodStart=${encodeURIComponent(periodStart.toISOString())}&periodEnd=${encodeURIComponent(periodEnd.toISOString())}`,
+      `${agent(organizationId, agentId)}/pairing?periodStart=${encodeURIComponent(filters.periodStart ?? periodStart.toISOString())}&periodEnd=${encodeURIComponent(filters.periodEnd ?? periodEnd.toISOString())}`,
       { signal },
     );
   },
@@ -251,12 +286,19 @@ export const agentApi = {
     organizationId: string,
     agentId: string,
     page: number,
+    filters: { entryType?: number; from?: string; to?: string } = {},
     signal?: AbortSignal,
-  ) =>
-    api.request<WalletEntriesPageDto>(
-      `${agent(organizationId, agentId)}/wallet/entries?page=${page}&pageSize=20`,
+  ) => {
+    const query = new URLSearchParams({ page: String(page), pageSize: "20" });
+    if (filters.entryType !== undefined)
+      query.set("entryType", String(filters.entryType));
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    return api.request<WalletEntriesPageDto>(
+      `${agent(organizationId, agentId)}/wallet/entries?${query}`,
       { signal },
-    ),
+    );
+  },
   payoutAccounts: (
     api: ApiClient,
     organizationId: string,

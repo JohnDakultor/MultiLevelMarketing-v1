@@ -1,13 +1,18 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using modular_mlm.Application.Catalog.Commands.ArchiveProduct;
 using modular_mlm.Application.Catalog.Commands.PublishProduct;
+using modular_mlm.Application.Catalog.Commands.RemoveProductImage;
 using modular_mlm.Application.Catalog.Commands.UpdateProduct;
+using modular_mlm.Application.Catalog.Commands.UploadProductImage;
+using modular_mlm.Application.Catalog.Models;
 using modular_mlm.Application.Catalog.Queries.GetAdminCategories;
 using modular_mlm.Application.Catalog.Queries.GetAdminCategories.Models;
 using modular_mlm.Application.Catalog.Queries.GetAdminProduct;
 using modular_mlm.Application.Catalog.Queries.GetAdminProduct.Models;
 using modular_mlm.Application.Catalog.Queries.GetAdminProducts;
 using modular_mlm.Application.Catalog.Queries.GetAdminProducts.Models;
+using modular_mlm.Application.Common.Models;
 using modular_mlm.Domain.Constants;
 
 namespace modular_mlm.Web.Endpoints;
@@ -23,6 +28,13 @@ public sealed class ProductAdministration : IEndpointGroup
         group.MapGet(GetAdminProduct, "{productId:guid}");
         group.MapGet(GetAdminCategories, "categories");
         group.MapPut(UpdateProduct, "{productId:guid}");
+        group
+            .MapPost(UploadProductImage, "{productId:guid}/image")
+            .DisableAntiforgery()
+            .WithMetadata(
+                new RequestSizeLimitAttribute(ProductImageLimits.MaximumContentLength + (64 * 1024))
+            );
+        group.MapDelete(RemoveProductImage, "{productId:guid}/image");
         group.MapPost(PublishProduct, "{productId:guid}/publish");
         group.MapPost(ArchiveProduct, "{productId:guid}/archive");
     }
@@ -92,6 +104,37 @@ public sealed class ProductAdministration : IEndpointGroup
     )
     {
         await sender.Send(new ArchiveProductCommand(organizationId, productId));
+        return TypedResults.NoContent();
+    }
+
+    public static async Task<Ok<StoredObject>> UploadProductImage(
+        ISender sender,
+        Guid organizationId,
+        Guid productId,
+        IFormFile file
+    )
+    {
+        await using var content = file.OpenReadStream();
+        var stored = await sender.Send(
+            new UploadProductImageCommand(
+                organizationId,
+                productId,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                content
+            )
+        );
+        return TypedResults.Ok(stored);
+    }
+
+    public static async Task<NoContent> RemoveProductImage(
+        ISender sender,
+        Guid organizationId,
+        Guid productId
+    )
+    {
+        await sender.Send(new RemoveProductImageCommand(organizationId, productId));
         return TypedResults.NoContent();
     }
 }

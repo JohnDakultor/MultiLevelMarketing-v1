@@ -16,6 +16,7 @@ import {
 } from "@modular-mlm/design-system";
 import { useOrganization } from "@modular-mlm/organization-context";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, type ReactNode } from "react";
 import { useAdminStorefrontUrl } from "../app/providers";
 import { adminNavigation } from "../navigation/adminNavigation";
@@ -58,12 +59,14 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
         variant="workspace"
         brand={{ name: "Modular MLM", contextLabel: "Platform Administration" }}
         navigation={[
+          { href: "/", label: "Organization dashboard" },
           { href: "/platform/organizations/new", label: "Create organization" },
           { href: "/platform/security", label: "Sign-in sessions" },
         ]}
         currentPath={pathname}
         account={<AdminAccountAction />}
         footer="Platform administration"
+        linkComponent={Link}
       >
         {children}
       </ApplicationShell>
@@ -117,6 +120,7 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
       currentPath={pathname}
       account={<AdminAccountAction />}
       footer={`Administering ${organization.name}`}
+      linkComponent={Link}
     >
       {children}
     </ApplicationShell>

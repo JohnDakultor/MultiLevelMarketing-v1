@@ -68,7 +68,7 @@ export interface CustomerAddressRequest extends CheckoutAddressInput {
 
 export type StorefrontApiContracts = {
   categories: CategoryDto[];
-  products: ProductDto[];
+  products: ProductPage;
   product: ProductDetailDto;
   cart: CartDto;
   profile: CustomerProfileDto;

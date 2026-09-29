@@ -8,6 +8,7 @@ import {
   PageHeader,
 } from "@modular-mlm/design-system";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import type { FormEvent } from "react";
 
 export default function RegisterPage() {
@@ -16,7 +17,7 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const feedback = useFormSubmission();
   return (
-    <div className="auth-only-layout">
+    <div className="auth-page">
       <form
         className="auth-form"
         onSubmit={async (event: FormEvent<HTMLFormElement>) => {
@@ -46,8 +47,8 @@ export default function RegisterPage() {
         }}
       >
         <PageHeader
-          title="Create customer account"
-          description="Create an account for this marketplace. Your customer profile is provisioned by the backend."
+          title="Create your account"
+          description="Save delivery details, check your orders, and enjoy a faster checkout."
         />
         <FormErrorSummary
           errors={feedback.fieldErrors}
@@ -88,7 +89,7 @@ export default function RegisterPage() {
           Create account
         </Button>
         <p className="auth-form__alternate-action">
-          Already have an account? <a href="/sign-in">Sign in</a>
+          Already have an account? <Link href="/sign-in">Sign in</Link>
         </p>
       </form>
     </div>

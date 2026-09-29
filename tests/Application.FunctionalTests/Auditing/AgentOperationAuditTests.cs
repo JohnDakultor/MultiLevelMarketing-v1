@@ -51,6 +51,45 @@ public sealed class AgentOperationAuditTests : TestBase
     }
 
     [Test]
+    public async Task ApprovalDoesNotActivateAgentWhoseIdentityBelongsToAnotherOrganization()
+    {
+        var assignedOrganization = await CreateOrganizationAsync("assigned");
+        var requestedOrganization = await CreateOrganizationAsync("requested");
+        var agentUserId = await RunAsUserAsync(
+            $"cross-tenant-agent-{Guid.NewGuid():N}@local",
+            "Testing1234!",
+            []
+        );
+        using (var scope = FunctionalTestSetup.ScopeFactory.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var identity = await users.FindByIdAsync(agentUserId);
+            identity.ShouldNotBeNull();
+            identity.OrganizationId = assignedOrganization.Id;
+            (await users.UpdateAsync(identity)).Succeeded.ShouldBeTrue();
+        }
+
+        var agent = CreateAgent(requestedOrganization.Id, userId: agentUserId);
+        agent.SubmitForApproval();
+        await AddAsync(agent);
+        await RunAsAdministratorAsync(requestedOrganization.Id);
+
+        var exception = await Should.ThrowAsync<ConflictException>(() =>
+            SendAsync(new ApproveAgentCommand(requestedOrganization.Id, agent.Id))
+        );
+
+        exception.Message.ShouldContain("another Organization");
+        (await FindAsync<Agent>(agent.Id))!.Status.ShouldBe(AgentStatus.PendingApproval);
+        (
+            await CountAsync<AuditLog>(entry =>
+                entry.OrganizationId == requestedOrganization.Id
+                && entry.EntityId == agent.Id
+                && entry.Action == AuditCoverageMap.AgentApproved.Action
+            )
+        ).ShouldBe(0);
+    }
+
+    [Test]
     public async Task RejectionCreatesAgentAudit()
     {
         var organization = await CreateOrganizationAsync();

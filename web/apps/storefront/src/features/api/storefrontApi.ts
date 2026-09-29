@@ -1,7 +1,6 @@
 import type { ApiClient } from "@modular-mlm/api-client";
 import type {
   AgentStorefrontDto,
-  AgentApplicationDto,
   CartDto,
   CategoryDto,
   CheckoutAddressInput,
@@ -12,7 +11,7 @@ import type {
   OrderSummariesPageDto,
   PaymentSessionDto,
   ProductDetailDto,
-  ProductDto,
+  ProductPage,
   IdentityInfoDto,
   TwoFactorRequest,
   TwoFactorResponse,
@@ -43,13 +42,40 @@ export const storefrontApi = {
   products: (
     api: ApiClient,
     organizationId: string,
-    page: number,
+    filters: {
+      page: number;
+      pageSize?: number;
+      search?: string;
+      categoryId?: string;
+      minimumPrice?: number;
+      maximumPrice?: number;
+      availability?: "Any" | "InStock" | "OutOfStock";
+      sort?:
+        | "Newest"
+        | "PriceAscending"
+        | "PriceDescending"
+        | "NameAscending"
+        | "NameDescending";
+    },
     signal?: AbortSignal,
-  ) =>
-    api.request<ProductDto[]>(
-      `${tenant(organizationId)}/products?page=${page}&pageSize=24`,
+  ) => {
+    const parameters = new URLSearchParams({
+      page: String(filters.page),
+      pageSize: String(filters.pageSize ?? 24),
+      availability: filters.availability ?? "Any",
+      sort: filters.sort ?? "Newest",
+    });
+    if (filters.search) parameters.set("search", filters.search);
+    if (filters.categoryId) parameters.set("categoryId", filters.categoryId);
+    if (filters.minimumPrice != null)
+      parameters.set("minimumPrice", String(filters.minimumPrice));
+    if (filters.maximumPrice != null)
+      parameters.set("maximumPrice", String(filters.maximumPrice));
+    return api.request<ProductPage>(
+      `${tenant(organizationId)}/products?${parameters}`,
       { anonymous: true, signal },
-    ),
+    );
+  },
   product: (
     api: ApiClient,
     organizationId: string,
@@ -81,20 +107,6 @@ export const storefrontApi = {
       `${tenant(organizationId)}/referrals/resolve/${encodeURIComponent(code)}`,
       { anonymous: true, signal },
     ),
-  agentApplication: (
-    api: ApiClient,
-    organizationId: string,
-    signal?: AbortSignal,
-  ) =>
-    api.request<AgentApplicationDto>(
-      `${tenant(organizationId)}/agent/application`,
-      { signal },
-    ),
-  applyAsAgent: (api: ApiClient, organizationId: string) =>
-    api.request<string>(`${tenant(organizationId)}/agents/applications`, {
-      method: "POST",
-      body: { sponsorAgentId: null },
-    }),
   cart: (api: ApiClient, organizationId: string, signal?: AbortSignal) =>
     api.request<CartDto>(`${tenant(organizationId)}/cart`, {
       anonymous: true,
@@ -218,10 +230,11 @@ export const storefrontApi = {
     api: ApiClient,
     organizationId: string,
     page: number,
+    status?: number,
     signal?: AbortSignal,
   ) =>
     api.request<OrderSummariesPageDto>(
-      `${tenant(organizationId)}/me/orders?page=${page}&pageSize=20`,
+      `${tenant(organizationId)}/me/orders?page=${page}&pageSize=20${status == null ? "" : `&status=${status}`}`,
       { signal },
     ),
   order: (

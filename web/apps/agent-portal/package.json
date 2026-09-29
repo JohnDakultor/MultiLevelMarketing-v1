@@ -16,20 +16,23 @@
     "@modular-mlm/auth": "*",
     "@modular-mlm/contracts": "*",
     "@modular-mlm/design-system": "*",
-    "@modular-mlm/observability": "*",
     "@modular-mlm/notifications": "*",
+    "@modular-mlm/observability": "*",
     "@modular-mlm/organization-context": "*",
     "@modular-mlm/tooling": "*",
+    "@xyflow/react": "^12.12.0",
+    "d3-hierarchy": "^3.1.2",
     "next": "16.3.3",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@types/d3-hierarchy": "^3.1.7",
     "@types/node": "^22.13.4",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/qrcode": "^1.5.6",
     "typescript": "^5.9.2"
   }
 }

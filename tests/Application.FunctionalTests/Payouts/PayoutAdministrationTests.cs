@@ -5,6 +5,7 @@ using modular_mlm.Application.Payouts.Commands.ApprovePayout;
 using modular_mlm.Application.Payouts.Commands.ProcessPayout;
 using modular_mlm.Application.Payouts.Commands.ReconcilePayout;
 using modular_mlm.Application.Payouts.Commands.RequestPayout;
+using modular_mlm.Application.Payouts.Queries.GetAdminPayoutAccounts;
 using modular_mlm.Domain.AuditLogs;
 using modular_mlm.Domain.Network;
 using modular_mlm.Domain.Organizations;
@@ -17,6 +18,57 @@ using static Infrastructure.TestApp;
 
 public sealed class PayoutAdministrationTests : TestBase
 {
+    [Test]
+    public async Task AdministratorCanListPendingPayoutAccountsWithoutProtectedDetails()
+    {
+        var organization = Organization.Create(
+            "Payout Account Review",
+            $"payout-account-review-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        await AddAsync(organization);
+        var userId = await RunAsUserAsync(
+            $"payout-account-agent-{Guid.NewGuid():N}@local",
+            "Testing1234!",
+            ["Agent"]
+        );
+        var agent = Agent.Apply(
+            organization.Id,
+            userId,
+            $"AG{Guid.NewGuid():N}"[..12],
+            $"RF{Guid.NewGuid():N}"[..12],
+            DateTimeOffset.UtcNow
+        );
+        var account = PayoutAccount.Register(
+            organization.Id,
+            agent.Id,
+            "bank_account",
+            "****4567",
+            "Protected Name",
+            "1234567",
+            "BNORPHMM",
+            "instapay"
+        );
+        account.SubmitForVerification();
+        await AddAsync(agent);
+        await AddAsync(account);
+        await RunAsAdministratorAsync(organization.Id);
+
+        var result = await SendAsync(
+            new GetAdminPayoutAccountsQuery(
+                organization.Id,
+                Status: PayoutVerificationStatus.Pending
+            )
+        );
+
+        result.TotalCount.ShouldBe(1);
+        var item = result.Items.Single();
+        item.AgentId.ShouldBe(agent.Id);
+        item.AgentCode.ShouldBe(agent.AgentCode);
+        item.MaskedAccountData.ShouldBe("****4567");
+        item.VerificationStatus.ShouldBe(PayoutVerificationStatus.Pending);
+    }
+
     [Test]
     public async Task ShouldRejectPayoutBelowOrganizationMinimum()
     {

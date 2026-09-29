@@ -5,6 +5,7 @@ using modular_mlm.Application.Organizations.Commands.PublishBranding;
 using modular_mlm.Application.Organizations.Commands.RemoveOrganizationDomain;
 using modular_mlm.Application.Organizations.Commands.UpdateCommerceSettings;
 using modular_mlm.Application.Organizations.Commands.UpdateOrganizationProfile;
+using modular_mlm.Application.Organizations.Commands.VerifyOrganizationDomain;
 using modular_mlm.Application.Organizations.Queries.GetAdminOrganizationSettings;
 using modular_mlm.Application.Organizations.Queries.GetAdminOrganizationSettings.Models;
 using modular_mlm.Application.Organizations.Queries.GetPublicOrganizationConfig.Models;
@@ -46,6 +47,12 @@ public sealed class OrganizationAdministration : IEndpointGroup
             .MapDelete(
                 RemoveDomain,
                 "{organizationId:guid}/admin/domains/{organizationDomainId:guid}"
+            )
+            .RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
+        group
+            .MapPost(
+                VerifyDomain,
+                "{organizationId:guid}/admin/domains/{organizationDomainId:guid}/verify"
             )
             .RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
     }
@@ -149,6 +156,18 @@ public sealed class OrganizationAdministration : IEndpointGroup
     {
         await sender.Send(
             new RemoveOrganizationDomainCommand(organizationId, organizationDomainId)
+        );
+        return TypedResults.NoContent();
+    }
+
+    public static async Task<NoContent> VerifyDomain(
+        ISender sender,
+        Guid organizationId,
+        Guid organizationDomainId
+    )
+    {
+        await sender.Send(
+            new VerifyOrganizationDomainCommand(organizationId, organizationDomainId)
         );
         return TypedResults.NoContent();
     }

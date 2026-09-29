@@ -20,12 +20,21 @@ export function useAdminScope() {
 
 export function Loading() {
   return (
-    <div className="content-stack" aria-busy="true">
+    <div className="content-stack admin-loading" aria-busy="true">
       <span className="ds-sr-only" role="status">
         Loading administration data…
       </span>
-      <Skeleton height="8rem" />
-      <Skeleton height="12rem" />
+      <div className="admin-loading__heading">
+        <Skeleton height="1.9rem" />
+        <Skeleton height="1rem" />
+      </div>
+      <div className="metric-grid">
+        <Skeleton height="7rem" />
+        <Skeleton height="7rem" />
+        <Skeleton height="7rem" />
+        <Skeleton height="7rem" />
+      </div>
+      <Skeleton height="18rem" />
     </div>
   );
 }

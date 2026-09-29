@@ -2,7 +2,6 @@
 
 import { useApiQuery } from "@modular-mlm/api-client";
 import {
-  Badge,
   Button,
   Card,
   DataTable,
@@ -14,6 +13,8 @@ import { useState } from "react";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading, date } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import { AgentStatusBadge } from "../shared/status";
+import { BinaryNetworkGraph } from "./BinaryNetworkGraph";
 
 export function NetworkPage() {
   const scope = useAgentScope();
@@ -63,8 +64,20 @@ export function NetworkPage() {
     [scope.organizationId, scope.agentId],
     scope.isReady,
   );
-  if (tree.isLoading || legs.isLoading) return <Loading />;
-  if (tree.error) return <Failure error={tree.error} retry={tree.reload} />;
+  if (tree.isLoading || legs.isLoading || recruits.isLoading)
+    return <Loading />;
+  const loadError = tree.error ?? legs.error ?? recruits.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          tree.reload();
+          legs.reload();
+          recruits.reload();
+        }}
+      />
+    );
   return (
     <div className="content-stack">
       <PageHeader
@@ -136,28 +149,7 @@ export function NetworkPage() {
             description="Your placement will appear after it is completed."
           />
         ) : (
-          <div className="network-tree" role="tree">
-            {tree.data.map((node) => (
-              <Card
-                key={node.agentId}
-                role="treeitem"
-                aria-level={node.depth + 1}
-                style={{
-                  marginInlineStart: `${Math.min(node.depth, 5) * 1.5}rem`,
-                }}
-              >
-                <strong>{node.agentCode}</strong>{" "}
-                <Badge>
-                  {node.side === 0
-                    ? "Left"
-                    : node.side === 1
-                      ? "Right"
-                      : "Root"}
-                </Badge>
-                <small>Status {node.status}</small>
-              </Card>
-            ))}
-          </div>
+          <BinaryNetworkGraph agents={tree.data} />
         )
       ) : view === "table" && downline.isLoading ? (
         <Loading />
@@ -176,7 +168,11 @@ export function NetworkPage() {
               header: "First leg",
               cell: (row) => (row.firstLeg === 0 ? "Left" : "Right"),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => <AgentStatusBadge value={row.status} />,
+            },
             {
               key: "joined",
               header: "Joined",
@@ -206,7 +202,11 @@ export function NetworkPage() {
                 header: "Side",
                 cell: (row) => placementSide(row.side),
               },
-              { key: "status", header: "Status", cell: (row) => row.status },
+              {
+                key: "status",
+                header: "Status",
+                cell: (row) => <AgentStatusBadge value={row.status} />,
+              },
               {
                 key: "joined",
                 header: "Joined",
@@ -237,7 +237,11 @@ export function NetworkPage() {
               header: "Your descendant leg",
               cell: (row) => placementSide(row.descendantLeg),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => <AgentStatusBadge value={row.status} />,
+            },
           ]}
         />
       )}

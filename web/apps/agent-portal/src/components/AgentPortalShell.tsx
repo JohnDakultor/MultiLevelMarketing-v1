@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, useApiQuery } from "@modular-mlm/api-client";
+import { useApiQuery } from "@modular-mlm/api-client";
 import {
   canAccessAgentOrganization,
   useAuthentication,
@@ -8,17 +8,16 @@ import {
 import {
   ApplicationShell,
   Button,
-  Card,
   ErrorState,
-  PageHeader,
   Skeleton,
 } from "@modular-mlm/design-system";
 import { useOrganization } from "@modular-mlm/organization-context";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { useAgentStorefrontUrl } from "../app/providers";
 import { agentNavigation } from "../navigation/agentNavigation";
 import { agentApi } from "../features/api/agentApi";
+import { AgentOnboarding } from "../features/onboarding/AgentOnboarding";
 
 export function AgentPortalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -38,7 +37,7 @@ export function AgentPortalShell({ children }: { children: ReactNode }) {
     ),
   );
 
-  if (pathname === "/sign-in") {
+  if (pathname === "/sign-in" || pathname === "/register") {
     return <main className="auth-only-layout">{children}</main>;
   }
 
@@ -79,22 +78,46 @@ export function AgentPortalShell({ children }: { children: ReactNode }) {
 
   const organization = organizationState.organization;
   if (!canAccessAgentOrganization(authentication.user, organization.id)) {
+    if (
+      authentication.user.organizationId !== null &&
+      authentication.user.organizationId !== organization.id
+    ) {
+      return (
+        <PortalState>
+          <ErrorState
+            title="Account belongs to another organization"
+            description={`This credential is assigned to organization ${authentication.user.organizationId}, but this Agent Portal is configured for ${organization.name}. Changing the portal slug does not transfer an Agent account. Sign in with an account created for this organization.`}
+          />
+        </PortalState>
+      );
+    }
+    if (!organization.agentProgramEnabled) {
+      return (
+        <PortalState>
+          <ErrorState
+            title="Agent applications are unavailable"
+            description="This organization has not enabled its Agent program."
+          />
+        </PortalState>
+      );
+    }
     return (
       <AgentApplicationAccessState
+        organizationId={organization.id}
         organizationName={organization.name}
         application={application.data ?? undefined}
         isLoading={application.isLoading}
-        hasNoApplication={
-          application.error instanceof ApiError &&
-          application.error.status === 404
-        }
+        error={application.error}
+        reload={application.reload}
+        refreshIdentity={authentication.refresh}
       />
     );
   }
 
   const disabledFeature =
     (pathname === "/network" && !organization.binaryNetworkEnabled) ||
-    (pathname === "/wallet" && !organization.walletEnabled) ||
+    (["/wallet", "/transactions"].includes(pathname) &&
+      !organization.walletEnabled) ||
     (pathname === "/payouts" && !organization.payoutEnabled) ||
     (pathname === "/referrals" && !organization.agentProgramEnabled);
   if (disabledFeature) {
@@ -120,6 +143,7 @@ export function AgentPortalShell({ children }: { children: ReactNode }) {
       currentPath={pathname}
       account={<AgentAccountAction />}
       footer={`${organization.name} Agent Portal`}
+      linkComponent={Link}
     >
       {children}
     </ApplicationShell>
@@ -127,59 +151,31 @@ export function AgentPortalShell({ children }: { children: ReactNode }) {
 }
 
 function AgentApplicationAccessState({
+  organizationId,
   organizationName,
   application,
   isLoading,
-  hasNoApplication,
+  error,
+  reload,
+  refreshIdentity,
 }: {
+  organizationId: string;
   organizationName: string;
-  application?: { agentCode: string; status: number };
+  application?: import("@modular-mlm/contracts").AgentApplicationDto;
   isLoading: boolean;
-  hasNoApplication: boolean;
+  error: Error | null;
+  reload(): void;
+  refreshIdentity(): Promise<void>;
 }) {
-  const storefrontUrl = useAgentStorefrontUrl();
-  const applicationUrl = `${storefrontUrl}/account/agent-application`;
   if (isLoading) return <PortalLoading label="Checking Agent application" />;
-
-  if (application) {
-    const status = [
-      "Applied",
-      "Pending approval",
-      "Active",
-      "Inactive",
-      "Suspended",
-      "Closed",
-    ][application.status];
-    return (
-      <PortalState>
-        <PageHeader
-          eyebrow="Agent application"
-          title={status ?? `Status ${application.status}`}
-          description={`Agent ${application.agentCode} for ${organizationName}.`}
-        />
-        <Card>
-          <p>
-            {application.status === 2
-              ? "Your Agent record is active, but this identity has not yet received the Agent Portal role and organization assignment."
-              : "The Agent Portal becomes available after an administrator approves and activates your application."}
-          </p>
-          <a className="portal-link" href={applicationUrl}>
-            View application in storefront
-          </a>
-        </Card>
-      </PortalState>
-    );
-  }
-
   return (
-    <AccessDenied
-      description={
-        hasNoApplication
-          ? `Apply to join the Agent program for ${organizationName}.`
-          : `Your signed-in account cannot access the Agent workspace for ${organizationName}.`
-      }
-      actionHref={applicationUrl}
-      actionLabel="Apply in the storefront"
+    <AgentOnboarding
+      organizationId={organizationId}
+      organizationName={organizationName}
+      application={application}
+      error={error}
+      reload={reload}
+      refreshIdentity={refreshIdentity}
     />
   );
 }
@@ -211,36 +207,6 @@ function RedirectToSignIn({ returnTo }: { returnTo: string }) {
   return (
     <PortalState>
       <p role="status">Redirecting you to Agent sign in…</p>
-    </PortalState>
-  );
-}
-
-function AccessDenied({
-  description,
-  actionHref,
-  actionLabel,
-}: {
-  description: string;
-  actionHref?: string;
-  actionLabel?: string;
-}) {
-  const storefrontUrl = useAgentStorefrontUrl();
-  return (
-    <PortalState>
-      <PageHeader
-        eyebrow="Access denied"
-        title="Agent access required"
-        description={description}
-      />
-      <Card>
-        <p>
-          You are authenticated, but this account does not have the required
-          Agent identity.
-        </p>
-        <a className="portal-link" href={actionHref ?? storefrontUrl}>
-          {actionLabel ?? "Return to the storefront"}
-        </a>
-      </Card>
     </PortalState>
   );
 }

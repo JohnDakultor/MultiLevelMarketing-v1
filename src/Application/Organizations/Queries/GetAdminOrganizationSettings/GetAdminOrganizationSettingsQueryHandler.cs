@@ -77,7 +77,9 @@ public sealed class GetAdminOrganizationSettingsQueryHandler(IApplicationDbConte
                     domain.IsPrimary,
                     domain.IsVerified,
                     domain.CreatedAt,
-                    domain.VerifiedAt
+                    domain.VerifiedAt,
+                    domain.VerificationRecordName,
+                    domain.VerificationToken
                 ))
                 .ToArray()
         );

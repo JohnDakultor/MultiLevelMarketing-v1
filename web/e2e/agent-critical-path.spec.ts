@@ -5,7 +5,7 @@ test.beforeEach(async ({}, testInfo) => {
   requireRealStack(testInfo, "agent-portal");
 });
 
-test("Agent dashboard, network, referral, wallet, and payout request", async ({
+test("Agent dashboard, network, transactions, referral, wallet, and payout request", async ({
   page,
 }) => {
   await signIn(page, "E2E_AGENT_EMAIL", "E2E_AGENT_PASSWORD");
@@ -22,6 +22,11 @@ test("Agent dashboard, network, referral, wallet, and payout request", async ({
   await expect(page.getByText(/referral/i).first()).toBeVisible();
   await page.goto("/wallet");
   await expect(page.getByRole("heading", { name: "Wallet" })).toBeVisible();
+  await page.goto("/transactions");
+  await expect(
+    page.getByRole("heading", { name: "Transactions" }),
+  ).toBeVisible();
+  await page.getByLabel("Transaction type").selectOption("4");
 
   await page.goto("/payouts");
   await page.getByLabel("Payout account").selectOption({ index: 1 });

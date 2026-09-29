@@ -14,18 +14,12 @@ interface StorefrontNavigationItem extends ApplicationNavigationItem {
 
 const navigation: readonly StorefrontNavigationItem[] = [
   { href: "/", label: "Home" },
-  { href: "/products", label: "Products" },
+  { href: "/products", label: "Shop" },
   { href: "/cart", label: "Cart" },
   {
     href: "/account",
     label: "My account",
     capability: Capabilities.customerAccount,
-  },
-  {
-    href: "/account/agent-application",
-    label: "Become an Agent",
-    capability: Capabilities.customerAccount,
-    requiresAgentProgram: true,
   },
   {
     href: "/notifications",

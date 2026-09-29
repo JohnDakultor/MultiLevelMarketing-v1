@@ -5,7 +5,13 @@ import {
   useApiQuery,
   useFormSubmission,
 } from "@modular-mlm/api-client";
-import type { AdminOrderDetailsDto } from "@modular-mlm/contracts";
+import {
+  OrderItemRefundStatus,
+  OrderStatus,
+  PaymentRefundStatus,
+  PaymentStatus,
+  type AdminOrderDetailsDto,
+} from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
@@ -16,9 +22,10 @@ import {
   InputField,
   PageHeader,
   SelectField,
+  StatusBadge,
   useConfirmation,
 } from "@modular-mlm/design-system";
-import { useState, type FormEvent } from "react";
+import { useDeferredValue, useState, type FormEvent } from "react";
 import { adminApi } from "../api/adminApi";
 import {
   Failure,
@@ -27,11 +34,19 @@ import {
   money,
   useAdminScope,
 } from "../shared/AdminState";
+import {
+  fulfillmentStatus,
+  orderItemRefundStatus,
+  orderStatus,
+  paymentRefundStatus,
+  paymentStatus as paymentStatusPresentation,
+} from "../shared/status";
 
 export function AdminOrdersPage() {
   const scope = useAdminScope();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [status, setStatus] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [createdFrom, setCreatedFrom] = useState("");
@@ -42,7 +57,7 @@ export function AdminOrdersPage() {
     page: String(page),
     pageSize: "20",
   });
-  if (search.trim()) parameters.set("search", search.trim());
+  if (deferredSearch.trim()) parameters.set("search", deferredSearch.trim());
   if (status) parameters.set("status", status);
   if (paymentStatus) parameters.set("paymentStatus", paymentStatus);
   if (createdFrom)
@@ -58,7 +73,7 @@ export function AdminOrdersPage() {
     [
       scope.organizationId,
       page,
-      search,
+      deferredSearch,
       status,
       paymentStatus,
       createdFrom,
@@ -76,6 +91,7 @@ export function AdminOrdersPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Commerce"
         title="Orders and refunds"
         description="Find organization orders, inspect payment and item-refund history, and perform audited financial operations."
       />
@@ -100,9 +116,9 @@ export function AdminOrdersPage() {
           }}
         >
           <option value="">All statuses</option>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((value) => (
+          {Object.values(OrderStatus).map((value) => (
             <option key={value} value={value}>
-              {value}
+              {orderStatus(value).label}
             </option>
           ))}
         </SelectField>
@@ -116,9 +132,9 @@ export function AdminOrdersPage() {
           }}
         >
           <option value="">All payment statuses</option>
-          {[0, 1, 2, 3, 4, 5].map((value) => (
+          {Object.values(PaymentStatus).map((value) => (
             <option key={value} value={value}>
-              {value}
+              {paymentStatusPresentation(value).label}
             </option>
           ))}
         </SelectField>
@@ -179,7 +195,12 @@ export function AdminOrdersPage() {
             {
               key: "status",
               header: "Order / payment",
-              cell: (row) => `${row.status} / ${row.paymentStatus}`,
+              cell: (row) => (
+                <div className="status-stack">
+                  <OrderStatusBadge value={row.status} />
+                  <PaymentStatusBadge value={row.paymentStatus} />
+                </div>
+              ),
             },
             {
               key: "actions",
@@ -295,7 +316,7 @@ function OrderDetails({
         id={feedback.errorSummaryId}
       />
       <div className="button-cluster" aria-label="Order fulfillment actions">
-        {data.status === 1 && (
+        {data.status === OrderStatus.paid && (
           <Button
             onClick={() =>
               void run(
@@ -317,7 +338,7 @@ function OrderDetails({
             Start processing
           </Button>
         )}
-        {data.status === 2 && (
+        {data.status === OrderStatus.processing && (
           <Button
             onClick={async () => {
               const carrier = await prompt({
@@ -357,7 +378,7 @@ function OrderDetails({
             Mark shipped
           </Button>
         )}
-        {data.status === 3 && (
+        {data.status === OrderStatus.shipped && (
           <Button
             onClick={() =>
               void run(
@@ -374,38 +395,39 @@ function OrderDetails({
             Mark delivered
           </Button>
         )}
-        {data.status === 0 && (
-          <Button
-            variant="danger"
-            onClick={async () => {
-              const reason = await prompt({
-                title: "Cancel order",
-                description: `Cancel unpaid order ${data.orderNumber}?`,
-                label: "Reason",
-                submitLabel: "Cancel order",
-                maxLength: 500,
-              });
-              if (!reason) return;
-              await run(
-                () =>
-                  adminApi.cancelOrder(
-                    api,
-                    scope.organizationId,
-                    data.id,
-                    reason,
-                  ),
-                {
-                  title: "Cancel order?",
-                  description: "Inventory reservations will be released.",
-                  label: "Cancel order",
-                },
-                "Order cancelled.",
-              );
-            }}
-          >
-            Cancel order
-          </Button>
-        )}
+        {data.status === OrderStatus.pendingPayment &&
+          data.paymentStatus === PaymentStatus.pending && (
+            <Button
+              variant="danger"
+              onClick={async () => {
+                const reason = await prompt({
+                  title: "Cancel order",
+                  description: `Cancel unpaid order ${data.orderNumber}?`,
+                  label: "Reason",
+                  submitLabel: "Cancel order",
+                  maxLength: 500,
+                });
+                if (!reason) return;
+                await run(
+                  () =>
+                    adminApi.cancelOrder(
+                      api,
+                      scope.organizationId,
+                      data.id,
+                      reason,
+                    ),
+                  {
+                    title: "Cancel order?",
+                    description: "Inventory reservations will be released.",
+                    label: "Cancel order",
+                  },
+                  "Order cancelled.",
+                );
+              }}
+            >
+              Cancel order
+            </Button>
+          )}
       </div>
       <h3>Items</h3>
       <DataTable
@@ -433,7 +455,9 @@ function OrderDetails({
           {
             key: "fulfillment",
             header: "Fulfillment",
-            cell: (row) => row.fulfillmentStatus,
+            cell: (row) => (
+              <FulfillmentStatusBadge value={row.fulfillmentStatus} />
+            ),
           },
           {
             key: "refund",
@@ -457,8 +481,8 @@ function OrderDetails({
           <div className="action-row" key={payment.id}>
             <span>
               <strong>{payment.provider}</strong> ·{" "}
-              {money(payment.amount, payment.currency)} · status{" "}
-              {payment.status}
+              {money(payment.amount, payment.currency)} ·{" "}
+              <PaymentStatusBadge value={payment.status} />
               <br />
               <small>
                 {payment.providerPaymentId ?? "Provider payment pending"}
@@ -523,7 +547,22 @@ function OrderDetails({
             {
               key: "status",
               header: "Reversal / provider",
-              cell: (row) => `${row.reversalStatus} / ${row.providerStatus}`,
+              cell: (row) => {
+                const reversal = orderItemRefundStatus(row.reversalStatus);
+                const provider = paymentRefundStatus(row.providerStatus);
+                return (
+                  <div className="status-stack">
+                    <StatusBadge
+                      label={`Reversal: ${reversal.label}`}
+                      tone={reversal.tone}
+                    />
+                    <StatusBadge
+                      label={`Provider: ${provider.label}`}
+                      tone={provider.tone}
+                    />
+                  </div>
+                );
+              },
             },
             {
               key: "reason",
@@ -533,31 +572,34 @@ function OrderDetails({
             {
               key: "action",
               header: "",
-              cell: (row) => (
-                <Button
-                  variant="secondary"
-                  disabled={feedback.isSubmitting}
-                  onClick={() =>
-                    void run(
-                      () =>
-                        adminApi.reconcileItemRefund(
-                          api,
-                          scope.organizationId,
-                          data.id,
-                          row.id,
-                        ),
-                      {
-                        title: "Reconcile item refund?",
-                        description: `Reconcile the provider refund and inventory reversal for ${data.orderNumber}?`,
-                        label: "Reconcile refund",
-                      },
-                      "Item refund reconciled.",
-                    )
-                  }
-                >
-                  Reconcile
-                </Button>
-              ),
+              cell: (row) =>
+                row.reversalStatus === OrderItemRefundStatus.reversed &&
+                row.providerStatus === PaymentRefundStatus.succeeded ? null : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={feedback.isSubmitting}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          adminApi.reconcileItemRefund(
+                            api,
+                            scope.organizationId,
+                            data.id,
+                            row.id,
+                          ),
+                        {
+                          title: "Reconcile item refund?",
+                          description: `Reconcile the provider refund and inventory reversal for ${data.orderNumber}?`,
+                          label: "Reconcile refund",
+                        },
+                        "Item refund reconciled.",
+                      )
+                    }
+                  >
+                    Reconcile
+                  </Button>
+                ),
             },
           ]}
         />
@@ -570,6 +612,21 @@ interface Confirmation {
   title: string;
   description: string;
   label: string;
+}
+
+function OrderStatusBadge({ value }: { value: number }) {
+  const status = orderStatus(value);
+  return <StatusBadge label={status.label} tone={status.tone} />;
+}
+
+function PaymentStatusBadge({ value }: { value: number }) {
+  const status = paymentStatusPresentation(value);
+  return <StatusBadge label={status.label} tone={status.tone} />;
+}
+
+function FulfillmentStatusBadge({ value }: { value: number }) {
+  const status = fulfillmentStatus(value);
+  return <StatusBadge label={status.label} tone={status.tone} />;
 }
 type FinancialRunner = (
   operation: () => Promise<unknown>,

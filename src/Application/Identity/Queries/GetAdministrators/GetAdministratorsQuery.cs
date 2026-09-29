@@ -4,7 +4,7 @@ using modular_mlm.Domain.Constants;
 
 namespace modular_mlm.Application.Identity.Queries.GetAdministrators;
 
-[Authorize(Roles = Roles.Administrator)]
+[Authorize(Roles = Roles.Administrator + "," + Roles.PlatformAdministrator)]
 public sealed record GetAdministratorsQuery(Guid OrganizationId, int Page = 1, int PageSize = 20)
     : IRequest<List<AdministratorDto>>,
         IOrganizationAdminRequest;

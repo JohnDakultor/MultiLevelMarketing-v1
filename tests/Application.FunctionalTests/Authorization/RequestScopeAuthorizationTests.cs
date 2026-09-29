@@ -128,6 +128,7 @@ public sealed class RequestScopeAuthorizationTests : TestBase
         );
     }
 
+
     [Test]
     public async Task AuthenticatedNonAgentCanCheckApplicationStatus()
     {

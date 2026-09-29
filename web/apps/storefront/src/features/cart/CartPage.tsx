@@ -8,6 +8,8 @@ import {
   PageHeader,
 } from "@modular-mlm/design-system";
 import { useOrganization } from "@modular-mlm/organization-context";
+import Image from "next/image";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { storefrontApi } from "../api/storefrontApi";
 import { ScreenError, ScreenLoading, money } from "../shared/ScreenState";
@@ -33,9 +35,9 @@ export function CartPage() {
           title="Your cart is empty"
           description="Browse the catalog and add a product to begin checkout."
           action={
-            <a className="ds-button ds-button--primary" href="/products">
+            <Link className="ds-button ds-button--primary" href="/products">
               Browse products
-            </a>
+            </Link>
           }
         />
       </div>
@@ -57,124 +59,176 @@ export function CartPage() {
     }
   };
   return (
-    <div className="content-stack">
+    <div className="content-stack storefront-cart-page">
       <PageHeader
+        eyebrow="Bag"
         title="Your cart"
-        description="Prices, availability, and totals are refreshed from the server."
+        description="Review your items before continuing to checkout."
       />
-      {message && <p role="alert">{message}</p>}
-      <div className="content-stack">
-        {cart.data.items.map((item) => (
-          <Card key={item.id} className="cart-row">
-            <div>
-              <h2>
-                <a href={`/products/${item.productSlug}`}>{item.productName}</a>
-              </h2>
-              <p>
-                {item.sku} · {item.stockStatus}
-              </p>
-              {!item.isAvailable && (
-                <strong className="danger-text">
-                  Remove this unavailable item before checkout.
-                </strong>
-              )}
-            </div>
-            <div>
-              <label>
-                Quantity{" "}
-                <input
-                  aria-label={`Quantity for ${item.productName}`}
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  disabled={workingItem === item.id}
-                  onChange={(event) =>
+      {message && (
+        <p className="storefront-inline-feedback" role="alert">
+          {message}
+        </p>
+      )}
+      <div className="storefront-cart-layout">
+        <div className="storefront-cart-items">
+          {cart.data.items.map((item) => (
+            <Card key={item.id} className="storefront-cart-item">
+              <Link
+                className="storefront-cart-item__media"
+                href={`/products/${item.productSlug}`}
+              >
+                {item.imageUrl ? (
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.productName}
+                    width={180}
+                    height={220}
+                    unoptimized
+                  />
+                ) : (
+                  <span aria-hidden>◇</span>
+                )}
+              </Link>
+              <div className="storefront-cart-item__details">
+                <h2>
+                  <Link href={`/products/${item.productSlug}`}>
+                    {item.productName}
+                  </Link>
+                </h2>
+                <p>
+                  {item.sku} · {item.stockStatus}
+                </p>
+                {!item.isAvailable && (
+                  <strong className="danger-text">
+                    Remove this unavailable item before checkout.
+                  </strong>
+                )}
+                <div className="storefront-cart-item__actions">
+                  <div
+                    className="storefront-quantity"
+                    aria-label={`Quantity for ${item.productName}`}
+                  >
+                    <Button
+                      variant="secondary"
+                      disabled={item.quantity <= 1 || workingItem === item.id}
+                      aria-label={`Decrease ${item.productName} quantity`}
+                      onClick={() =>
+                        void mutate(item.id, () =>
+                          storefrontApi.updateCartItem(
+                            api,
+                            organization!.id,
+                            item.id,
+                            item.quantity - 1,
+                          ),
+                        )
+                      }
+                    >
+                      −
+                    </Button>
+                    <output aria-live="polite">{item.quantity}</output>
+                    <Button
+                      variant="secondary"
+                      disabled={workingItem === item.id}
+                      aria-label={`Increase ${item.productName} quantity`}
+                      onClick={() =>
+                        void mutate(item.id, () =>
+                          storefrontApi.updateCartItem(
+                            api,
+                            organization!.id,
+                            item.id,
+                            item.quantity + 1,
+                          ),
+                        )
+                      }
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <strong>{money(item.lineTotal, cart.data!.currency)}</strong>
+                </div>
+                <Button
+                  variant="ghost"
+                  isLoading={workingItem === item.id}
+                  onClick={() =>
                     void mutate(item.id, () =>
-                      storefrontApi.updateCartItem(
+                      storefrontApi.removeCartItem(
                         api,
                         organization!.id,
                         item.id,
-                        event.target.valueAsNumber,
                       ),
                     )
                   }
-                />
-              </label>
-              <p>{money(item.lineTotal, cart.data!.currency)}</p>
-              <Button
-                variant="ghost"
-                isLoading={workingItem === item.id}
-                onClick={() =>
-                  void mutate(item.id, () =>
-                    storefrontApi.removeCartItem(
-                      api,
-                      organization!.id,
-                      item.id,
-                    ),
-                  )
-                }
-              >
-                Remove
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-      <Card className="cart-total">
-        <div>
-          <span>Subtotal</span>
-          <strong>{money(cart.data.subtotal, cart.data.currency)}</strong>
+                >
+                  Remove
+                </Button>
+              </div>
+            </Card>
+          ))}
         </div>
-        <p>
-          {cart.data.itemCount} item(s). Shipping, tax, and final eligibility
-          are determined at checkout.
-        </p>
-        <a className="ds-button ds-button--primary" href="/checkout">
-          Continue to checkout
-        </a>
-      </Card>
-      <Card>
-        <h2>Referral code</h2>
-        <form
-          className="inline-form"
-          onSubmit={async (event: FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            if (!organization) return;
-            const code = String(
-              new FormData(event.currentTarget).get("referralCode"),
-            ).trim();
-            if (!code) return;
-            setApplyingReferral(true);
-            setMessage("");
-            try {
-              await storefrontApi.applyReferral(api, organization.id, code);
-              setMessage("Referral code applied.");
-              cart.reload();
-            } catch (error) {
-              setMessage(
-                error instanceof Error
-                  ? error.message
-                  : "The referral code could not be applied.",
-              );
-            } finally {
-              setApplyingReferral(false);
-            }
-          }}
-        >
-          <label>
-            <span>Code</span>
-            <input name="referralCode" required autoComplete="off" />
-          </label>
-          <Button
-            type="submit"
-            variant="secondary"
-            isLoading={isApplyingReferral}
-            disabled={isApplyingReferral}
-          >
-            Apply code
-          </Button>
-        </form>
-      </Card>
+        <aside className="storefront-cart-sidebar">
+          <Card className="cart-total storefront-order-summary">
+            <h2>Order summary</h2>
+            <div>
+              <span>Subtotal</span>
+              <strong>{money(cart.data.subtotal, cart.data.currency)}</strong>
+            </div>
+            <p>
+              {cart.data.itemCount} item(s). Shipping and the final total are
+              shown at checkout.
+            </p>
+            <Link className="ds-button ds-button--primary" href="/checkout">
+              Continue to checkout
+            </Link>
+            <Link className="storefront-text-link" href="/products">
+              Continue shopping
+            </Link>
+          </Card>
+          <Card className="storefront-referral-card">
+            <h2>Have a shopping code?</h2>
+            <p>Apply your code before continuing to checkout.</p>
+            <form
+              className="inline-form"
+              onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+                event.preventDefault();
+                if (!organization) return;
+                const code = String(
+                  new FormData(event.currentTarget).get("referralCode"),
+                ).trim();
+                if (!code) return;
+                setApplyingReferral(true);
+                setMessage("");
+                try {
+                  await storefrontApi.applyReferral(api, organization.id, code);
+                  setMessage("Shopping code applied.");
+                  cart.reload();
+                } catch (error) {
+                  setMessage(
+                    error instanceof Error
+                      ? error.message
+                      : "The shopping code could not be applied.",
+                  );
+                } finally {
+                  setApplyingReferral(false);
+                }
+              }}
+            >
+              <label>
+                <span>Code</span>
+                <input name="referralCode" required autoComplete="off" />
+              </label>
+              <Button
+                type="submit"
+                variant="secondary"
+                isLoading={isApplyingReferral}
+                disabled={isApplyingReferral}
+              >
+                Apply code
+              </Button>
+            </form>
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }

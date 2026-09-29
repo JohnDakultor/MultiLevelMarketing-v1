@@ -14,8 +14,18 @@ export function Loading() {
       <span className="ds-sr-only" role="status">
         Loading Agent workspace…
       </span>
-      <Skeleton height="8rem" />
-      <Skeleton height="12rem" />
+      <div className="agent-page-skeleton">
+        <Skeleton width="35%" height="1rem" />
+        <Skeleton width="65%" height="2.25rem" />
+        <Skeleton width="80%" height="1rem" />
+      </div>
+      <div className="metric-grid">
+        <Skeleton height="7.5rem" />
+        <Skeleton height="7.5rem" />
+        <Skeleton height="7.5rem" />
+        <Skeleton height="7.5rem" />
+      </div>
+      <Skeleton height="18rem" />
     </div>
   );
 }

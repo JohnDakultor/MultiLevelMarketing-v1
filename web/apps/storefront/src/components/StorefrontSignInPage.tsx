@@ -8,6 +8,7 @@ import {
 } from "@modular-mlm/auth";
 import { Alert, Button } from "@modular-mlm/design-system";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export function StorefrontSignInPage({
@@ -49,10 +50,10 @@ export function StorefrontSignInPage({
         onSuccess={() => router.replace(returnPath())}
       />
       <p>
-        <a href="/forgot-password">Forgot your password?</a>
+        <Link href="/forgot-password">Forgot your password?</Link>
       </p>
       <p>
-        New customer? <a href="/register">Create an account</a>
+        New here? <Link href="/register">Create an account</Link>
       </p>
     </div>
   );

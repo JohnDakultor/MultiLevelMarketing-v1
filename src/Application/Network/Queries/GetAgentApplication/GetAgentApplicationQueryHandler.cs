@@ -28,7 +28,7 @@ public sealed class GetAgentApplicationQueryHandler(IApplicationDbContext db, IU
                 agent.JoinedAt,
                 agent.ActivatedAt,
                 agent.QualificationState,
-                agent.PlacementParentAgentId == null
+                agent.SponsorAgentId != null && agent.PlacementParentAgentId == null
             )
         ).SingleOrDefaultAsync(cancellationToken);
     }

@@ -1,14 +1,20 @@
 "use client";
-import { useApiClient, useApiQuery } from "@modular-mlm/api-client";
+import {
+  useApiClient,
+  useApiQuery,
+  useFormSubmission,
+} from "@modular-mlm/api-client";
 import {
   Alert,
   Button,
-  Card,
   DataTable,
   EmptyState,
+  FormErrorSummary,
   PageHeader,
+  StatsCard,
   useConfirmation,
 } from "@modular-mlm/design-system";
+import { useState } from "react";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, date, useAdminScope } from "../shared/AdminState";
 
@@ -24,6 +30,7 @@ export function AuditTrailPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Governance"
         title="Audit trail"
         description="Immutable administrative and financial actions for this organization."
       />
@@ -70,6 +77,8 @@ export function AuditTrailPage() {
 export function OperationalHealthPage() {
   const api = useApiClient();
   const { prompt } = useConfirmation();
+  const replay = useFormSubmission();
+  const [replayingId, setReplayingId] = useState<string | null>(null);
   const scope = useAdminScope();
   const health = useApiQuery(
     (client, signal) => adminApi.health(client, scope.organizationId, signal),
@@ -85,15 +94,22 @@ export function OperationalHealthPage() {
   if (health.isLoading || dead.isLoading) return <Loading />;
   if (health.error)
     return <Failure error={health.error} retry={health.reload} />;
+  if (dead.error) return <Failure error={dead.error} retry={dead.reload} />;
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Operations"
         title="Operational health"
         description="Provider and background-processing state exposed by the backend."
       />
       <Alert title="Operational snapshot" tone="info">
         Observed {date(health.data?.observedAt ?? null)}
       </Alert>
+      <FormErrorSummary
+        errors={replay.fieldErrors}
+        generalErrors={replay.formErrors}
+        id={replay.errorSummaryId}
+      />
       <div className="metric-grid">
         <HealthMetric
           label="Pending outbox"
@@ -154,6 +170,9 @@ export function OperationalHealthPage() {
               cell: (row) => (
                 <Button
                   variant="secondary"
+                  size="sm"
+                  isLoading={replayingId === row.messageId}
+                  disabled={replay.isSubmitting}
                   onClick={async () => {
                     const reason = await prompt({
                       title: "Replay failed message?",
@@ -162,14 +181,20 @@ export function OperationalHealthPage() {
                       submitLabel: "Replay message",
                     });
                     if (!reason) return;
-                    await adminApi.replayDeadLetter(
-                      api,
-                      scope.organizationId,
-                      row.messageId,
-                      row.attempts,
-                      reason,
+                    setReplayingId(row.messageId);
+                    const replayed = await replay.submit(
+                      () =>
+                        adminApi.replayDeadLetter(
+                          api,
+                          scope.organizationId,
+                          row.messageId,
+                          row.attempts,
+                          reason,
+                        ),
+                      "Message queued for replay.",
                     );
-                    dead.reload();
+                    setReplayingId(null);
+                    if (replayed) dead.reload();
                   }}
                 >
                   Replay
@@ -184,10 +209,5 @@ export function OperationalHealthPage() {
 }
 
 function HealthMetric({ label, value }: { label: string; value?: number }) {
-  return (
-    <Card>
-      <span>{label}</span>
-      <strong className="metric-value">{value ?? 0}</strong>
-    </Card>
-  );
+  return <StatsCard label={label} value={value ?? 0} />;
 }

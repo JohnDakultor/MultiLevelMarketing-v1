@@ -101,6 +101,8 @@ export interface OrganizationDomainDto {
   isVerified: boolean;
   createdAt: IsoDateTime;
   verifiedAt: IsoDateTime | null;
+  verificationRecordName: string;
+  verificationToken: string;
 }
 
 export interface AdminOrganizationSettingsDto {

@@ -6,5 +6,7 @@ public sealed record OrganizationDomainDto(
     bool IsPrimary,
     bool IsVerified,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? VerifiedAt
+    DateTimeOffset? VerifiedAt,
+    string VerificationRecordName,
+    string VerificationToken
 );

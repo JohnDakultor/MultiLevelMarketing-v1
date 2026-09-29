@@ -10,6 +10,7 @@ import {
 } from "@modular-mlm/design-system";
 import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 
 export default function ResetPasswordPage() {
   const api = useApiClient();
@@ -26,9 +27,9 @@ export default function ResetPasswordPage() {
           Request a new password-reset email and use the complete link from that
           message.
         </Alert>
-        <a className="ds-button ds-button--primary" href="/forgot-password">
+        <Link className="ds-button ds-button--primary" href="/forgot-password">
           Request another link
-        </a>
+        </Link>
       </div>
     );
 
@@ -38,9 +39,9 @@ export default function ResetPasswordPage() {
         <Alert title="Password changed" tone="success">
           You can now sign in using your new password.
         </Alert>
-        <a className="ds-button ds-button--primary" href="/sign-in">
+        <Link className="ds-button ds-button--primary" href="/sign-in">
           Continue to sign in
-        </a>
+        </Link>
       </div>
     );
 

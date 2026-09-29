@@ -28,9 +28,8 @@ export function canAccessPortal(
   }
 
   return (
-    (hasRole(user, Roles.administrator) ||
-      hasRole(user, Roles.platformAdministrator)) &&
-    user.organizationId !== null
+    hasRole(user, Roles.platformAdministrator) ||
+    (hasRole(user, Roles.administrator) && user.organizationId !== null)
   );
 }
 
@@ -55,9 +54,7 @@ export function capabilitiesFor(
   }
   if (hasRole(user, Roles.platformAdministrator)) {
     capabilities.add(Capabilities.platformAdministration);
-    if (user.organizationId) {
-      capabilities.add(Capabilities.organizationAdministration);
-    }
+    capabilities.add(Capabilities.organizationAdministration);
   }
   return capabilities;
 }
@@ -82,9 +79,9 @@ export function canAdministerOrganization(
   user: CurrentUserDto | null,
   organizationId: string,
 ): boolean {
-  if (!user || user.organizationId !== organizationId) return false;
+  if (!user) return false;
+  if (hasRole(user, Roles.platformAdministrator)) return true;
   return (
-    hasRole(user, Roles.administrator) ||
-    hasRole(user, Roles.platformAdministrator)
+    hasRole(user, Roles.administrator) && user.organizationId === organizationId
   );
 }

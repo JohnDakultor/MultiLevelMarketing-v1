@@ -1,5 +1,6 @@
 export * from "./Button";
 export * from "./ApplicationShell";
+export * from "./AdminPrimitives";
 export * from "./ConfirmationProvider";
 export * from "./DataTable";
 export * from "./Dialog";

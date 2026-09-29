@@ -22,6 +22,7 @@ import type {
   OperationalHealthDto,
   PayoutHistoryItemDto,
   PayoutDetailsDto,
+  AdminPayoutAccountsPageDto,
   ProductCommissionProfileDto,
   StoredObjectDto,
   UpdateBrandingRequest,
@@ -30,6 +31,8 @@ import type {
   AdminWalletEntriesPageDto,
   AdminCommissionLedgerPageDto,
   ReferralSettingsDto,
+  AdminCustomersPageDto,
+  AdminCustomerDetailsDto,
 } from "@modular-mlm/contracts";
 
 const org = (id: string) => `/api/organizations/${id}`;
@@ -116,6 +119,48 @@ export const adminApi = {
     }),
   removeDomain: (api: ApiClient, id: string, domainId: string) =>
     api.request<void>(`${admin(id)}/domains/${domainId}`, { method: "DELETE" }),
+  verifyDomain: (api: ApiClient, id: string, domainId: string) =>
+    api.request<void>(`${admin(id)}/domains/${domainId}/verify`, {
+      method: "POST",
+    }),
+  customers: (
+    api: ApiClient,
+    id: string,
+    page: number,
+    search: string,
+    status: string,
+    signal?: AbortSignal,
+  ) =>
+    api.request<AdminCustomersPageDto>(
+      `${admin(id)}/customers?${new URLSearchParams({
+        page: String(page),
+        pageSize: "20",
+        ...(search.trim() ? { search: search.trim() } : {}),
+        ...(status ? { status } : {}),
+      })}`,
+      { signal },
+    ),
+  customer: (
+    api: ApiClient,
+    id: string,
+    customerId: string,
+    signal?: AbortSignal,
+  ) =>
+    api.request<AdminCustomerDetailsDto>(
+      `${admin(id)}/customers/${customerId}`,
+      { signal },
+    ),
+  changeCustomerStatus: (
+    api: ApiClient,
+    id: string,
+    customerId: string,
+    status: number,
+    reason: string,
+  ) =>
+    api.request<void>(`${admin(id)}/customers/${customerId}/status`, {
+      method: "PUT",
+      body: { status, reason },
+    }),
   products: (api: ApiClient, id: string, signal?: AbortSignal) =>
     api.request<AdminProductDto[]>(
       `${admin(id)}/products?page=1&pageSize=100`,
@@ -149,6 +194,23 @@ export const adminApi = {
     api.request<void>(`${admin(id)}/products/${productId}`, {
       method: "PUT",
       body,
+    }),
+  uploadProductImage: (
+    api: ApiClient,
+    id: string,
+    productId: string,
+    file: File,
+  ) => {
+    const body = new FormData();
+    body.append("file", file);
+    return api.request<StoredObjectDto>(
+      `${admin(id)}/products/${productId}/image`,
+      { method: "POST", body },
+    );
+  },
+  removeProductImage: (api: ApiClient, id: string, productId: string) =>
+    api.request<void>(`${admin(id)}/products/${productId}/image`, {
+      method: "DELETE",
     }),
   updateVariant: (
     api: ApiClient,
@@ -387,6 +449,21 @@ export const adminApi = {
       `${admin(id)}/payouts?page=${page}&pageSize=20`,
       { signal },
     ),
+  payoutAccounts: (
+    api: ApiClient,
+    id: string,
+    page: number,
+    signal?: AbortSignal,
+    status?: string,
+  ) =>
+    api.request<AdminPayoutAccountsPageDto>(
+      `${admin(id)}/payouts/accounts?${new URLSearchParams({
+        page: String(page),
+        pageSize: "20",
+        ...(status ? { status } : {}),
+      })}`,
+      { signal },
+    ),
   payoutDetails: (
     api: ApiClient,
     id: string,
@@ -543,9 +620,16 @@ export const adminApi = {
     page: number,
     search: string,
     signal?: AbortSignal,
+    filters: { status?: string; negativeOnly?: boolean } = {},
   ) =>
     api.request<AdminWalletsPageDto>(
-      `${admin(id)}/wallets?page=${page}&pageSize=20&search=${encodeURIComponent(search)}&negativeOnly=false`,
+      `${admin(id)}/wallets?${new URLSearchParams({
+        page: String(page),
+        pageSize: "20",
+        ...(search.trim() ? { search: search.trim() } : {}),
+        negativeOnly: String(filters.negativeOnly ?? false),
+        ...(filters.status ? { status: filters.status } : {}),
+      })}`,
       { signal },
     ),
   adminWalletEntries: (
@@ -564,9 +648,28 @@ export const adminApi = {
     id: string,
     page: number,
     signal?: AbortSignal,
+    filters: {
+      agentId?: string;
+      commissionType?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+      includeReversals?: boolean;
+    } = {},
   ) =>
     api.request<AdminCommissionLedgerPageDto>(
-      `${admin(id)}/commissions?page=${page}&pageSize=20&includeReversals=true`,
+      `${admin(id)}/commissions?${new URLSearchParams({
+        page: String(page),
+        pageSize: "20",
+        includeReversals: String(filters.includeReversals ?? true),
+        ...(filters.agentId ? { agentId: filters.agentId } : {}),
+        ...(filters.commissionType
+          ? { commissionType: filters.commissionType }
+          : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.from ? { from: filters.from } : {}),
+        ...(filters.to ? { to: filters.to } : {}),
+      })}`,
       { signal },
     ),
   referralSettings: (api: ApiClient, id: string, signal?: AbortSignal) =>

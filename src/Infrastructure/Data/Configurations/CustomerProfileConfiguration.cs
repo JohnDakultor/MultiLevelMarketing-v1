@@ -14,7 +14,11 @@ public sealed class CustomerProfileConfiguration : IEntityTypeConfiguration<Cust
             .Property(profile => profile.DisplayName)
             .HasMaxLength(CustomerProfile.MaximumDisplayNameLength)
             .IsRequired();
+        builder.Property(profile => profile.Email).HasMaxLength(CustomerProfile.MaximumEmailLength);
+        builder.Property(profile => profile.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasAlternateKey(profile => new { profile.Id, profile.OrganizationId });
         builder.HasIndex(profile => new { profile.OrganizationId, profile.UserId }).IsUnique();
+        builder.HasIndex(profile => new { profile.OrganizationId, profile.Status });
+        builder.HasIndex(profile => new { profile.OrganizationId, profile.Email });
     }
 }

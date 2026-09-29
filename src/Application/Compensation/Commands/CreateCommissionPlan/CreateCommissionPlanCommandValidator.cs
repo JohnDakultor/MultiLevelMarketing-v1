@@ -1,4 +1,5 @@
 using modular_mlm.Domain.Compensation;
+using modular_mlm.Application.Compensation;
 
 namespace modular_mlm.Application.Compensation.Commands.CreateCommissionPlan;
 
@@ -50,5 +51,15 @@ public sealed class CreateCommissionPlanCommandValidator
                 !command.BinaryPairingEnabled
                 || command.PairingCalculationType == PairingCalculationType.PercentageMatchedVolume
             );
+        RuleFor(command => command.QualificationRulesJson)
+            .MaximumLength(CommissionRuleJson.MaximumLength)
+            .Must(CommissionRuleJson.IsValidQualificationRules)
+            .When(command => !string.IsNullOrWhiteSpace(command.QualificationRulesJson))
+            .WithMessage("Qualification rules must match the supported rule structure.");
+        RuleFor(command => command.CapRulesJson)
+            .MaximumLength(CommissionRuleJson.MaximumLength)
+            .Must(CommissionRuleJson.IsValidCapRules)
+            .When(command => !string.IsNullOrWhiteSpace(command.CapRulesJson))
+            .WithMessage("Cap rules must contain a non-negative maximum amount when enabled.");
     }
 }

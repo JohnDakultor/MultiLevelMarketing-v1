@@ -20,4 +20,5 @@ public static class AuditEntityNames
     public const string AdministratorAccount = "AdministratorAccount";
     public const string OutboxMessage = "OutboxMessage";
     public const string Category = "Category";
+    public const string CustomerProfile = "CustomerProfile";
 }

@@ -19,7 +19,7 @@ public sealed class GetWalletEntriesQueryHandler(IApplicationDbContext db)
                 cancellationToken
             );
         if (wallet is null)
-            throw new KeyNotFoundException("Agent wallet was not found.");
+            return new WalletEntriesPageDto([], request.Page, request.PageSize, 0);
 
         var query = db.WalletEntries.AsNoTracking().Where(entry => entry.WalletId == wallet.Id);
 

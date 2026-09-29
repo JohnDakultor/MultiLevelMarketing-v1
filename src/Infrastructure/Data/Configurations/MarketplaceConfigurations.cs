@@ -86,7 +86,10 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         b.ToTable("Products");
         b.HasIndex(x => new { x.OrganizationId, x.Slug }).IsUnique();
+        b.HasIndex(x => new { x.OrganizationId, x.Status, x.Created });
+        b.HasIndex(x => new { x.OrganizationId, x.CategoryId, x.Status });
         b.Property(x => x.Name).HasMaxLength(200);
+        b.Property(x => x.DefaultImageObjectKey).HasMaxLength(1_024);
         b.HasMany(x => x.Variants)
             .WithOne()
             .HasForeignKey(x => x.ProductId)
@@ -183,11 +186,11 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
             x.Id,
         });
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.PlacementParentAgentId,
-                x.PlacementSide,
-            })
+        {
+            x.OrganizationId,
+            x.PlacementParentAgentId,
+            x.PlacementSide,
+        })
             .IsUnique()
             .HasFilter("\"PlacementParentAgentId\" IS NOT NULL");
     }
@@ -199,11 +202,11 @@ public sealed class PlacementClosureConfiguration : IEntityTypeConfiguration<Pla
     {
         b.ToTable("PlacementClosure");
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.AncestorAgentId,
-                x.DescendantAgentId,
-            })
+        {
+            x.OrganizationId,
+            x.AncestorAgentId,
+            x.DescendantAgentId,
+        })
             .IsUnique();
         b.HasIndex(x => new
         {
@@ -220,11 +223,11 @@ public sealed class CommissionPlanConfiguration : IEntityTypeConfiguration<Commi
     {
         b.ToTable("CommissionPlans");
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.Name,
-                x.Version,
-            })
+        {
+            x.OrganizationId,
+            x.Name,
+            x.Version,
+        })
             .IsUnique();
         b.Property(x => x.DirectSalesRate).HasPrecision(9, 6);
         b.Property(x => x.ConfigurationVersion).IsConcurrencyToken();
@@ -244,22 +247,22 @@ public sealed class FinancialPrecisionConfiguration
         b.Property(x => x.BaseAmount).HasPrecision(18, 2);
         b.Property(x => x.Amount).HasPrecision(18, 2);
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.BeneficiaryAgentId,
-                x.SourceOrderId,
-                x.SourceOrderItemId,
-                x.RuleId,
-            })
+        {
+            x.OrganizationId,
+            x.BeneficiaryAgentId,
+            x.SourceOrderId,
+            x.SourceOrderItemId,
+            x.RuleId,
+        })
             .IsUnique()
             .HasFilter("\"SourceOrderId\" IS NOT NULL");
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.BeneficiaryAgentId,
-                x.PairingRunId,
-                x.RuleId,
-            })
+        {
+            x.OrganizationId,
+            x.BeneficiaryAgentId,
+            x.PairingRunId,
+            x.RuleId,
+        })
             .IsUnique()
             .HasFilter("\"PairingRunId\" IS NOT NULL");
         b.HasOne<BinaryPairingRun>()
@@ -296,22 +299,22 @@ public sealed class FinancialPrecisionConfiguration
         b.ToTable("BinaryVolumeEntries");
         b.Property(x => x.Volume).HasPrecision(18, 4);
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.OwnerAgentId,
-                x.SourceOrderItemId,
-                x.EntryType,
-            })
+        {
+            x.OrganizationId,
+            x.OwnerAgentId,
+            x.SourceOrderItemId,
+            x.EntryType,
+        })
             .IsUnique()
             .HasFilter("\"SourceOrderItemId\" IS NOT NULL");
         b.HasIndex(x => new
-            {
-                x.OrganizationId,
-                x.OwnerAgentId,
-                x.PairingRunId,
-                x.Side,
-                x.EntryType,
-            })
+        {
+            x.OrganizationId,
+            x.OwnerAgentId,
+            x.PairingRunId,
+            x.Side,
+            x.EntryType,
+        })
             .IsUnique()
             .HasFilter("\"PairingRunId\" IS NOT NULL");
         b.HasOne<BinaryPairingRun>()
@@ -354,20 +357,20 @@ public sealed class FinancialPrecisionConfiguration
         b.HasIndex(x => new { x.WalletId, x.Type })
             .HasDatabaseName("IX_WalletEntries_Wallet_Type");
         b.HasIndex(x => new
-            {
-                x.WalletId,
-                x.SourceType,
-                x.SourceId,
-                x.Type,
-            })
+        {
+            x.WalletId,
+            x.SourceType,
+            x.SourceId,
+            x.Type,
+        })
             .IsUnique()
             .HasFilter("\"ReversalOfEntryId\" IS NULL");
         b.HasIndex(x => new
-            {
-                x.ReversalOfEntryId,
-                x.SourceId,
-                x.Type,
-            })
+        {
+            x.ReversalOfEntryId,
+            x.SourceId,
+            x.Type,
+        })
             .IsUnique()
             .HasFilter("\"ReversalOfEntryId\" IS NOT NULL");
     }

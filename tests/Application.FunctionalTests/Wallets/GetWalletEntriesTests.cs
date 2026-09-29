@@ -11,6 +11,36 @@ using static Infrastructure.TestApp;
 public sealed class GetWalletEntriesTests : TestBase
 {
     [Test]
+    public async Task AgentWithoutProvisionedWalletReceivesAnEmptyLedger()
+    {
+        var organization = Organization.Create(
+            "Wallet Pending Provisioning",
+            $"wallet-pending-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        await AddAsync(organization);
+        var userName = $"wallet-pending-{Guid.NewGuid():N}@local";
+        var userId = await RunAsUserAsync(userName, "Testing1234!", ["Agent"]);
+        var agent = Agent.Apply(
+            organization.Id,
+            userId,
+            $"AG{Guid.NewGuid():N}"[..12],
+            $"RF{Guid.NewGuid():N}"[..12],
+            DateTimeOffset.UtcNow
+        );
+        agent.Activate(DateTimeOffset.UtcNow);
+        await AddAsync(agent);
+
+        var result = await SendAsync(
+            new GetWalletEntriesQuery(organization.Id, agent.Id, 1, 20, null, null, null)
+        );
+
+        result.Items.ShouldBeEmpty();
+        result.TotalCount.ShouldBe(0);
+        result.HasNextPage.ShouldBeFalse();
+    }
+
+    [Test]
     public async Task AgentCanReadOwnEntriesAndAdministratorCanReadSameOrganizationEntries()
     {
         var data = await CreateWalletAsync();

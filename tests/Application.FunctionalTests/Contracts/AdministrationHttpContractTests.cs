@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using modular_mlm.Domain.Catalog;
 using modular_mlm.Domain.Organizations;
+using modular_mlm.Application.Organizations.Commands.UpdateFeatureSettings;
 
 namespace modular_mlm.Application.FunctionalTests.Contracts;
 
@@ -75,6 +76,24 @@ public sealed class AdministrationHttpContractTests : TestBase
             new { name = "Another", slug = "health" }
         );
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Test]
+    public async Task DisabledCommerceIsRejectedByThePublicApi()
+    {
+        var organization = await CreateOrganizationAsync();
+        await RunAsAdministratorAsync(organization.Id);
+        await SendAsync(
+            new UpdateFeatureSettingsCommand(organization.Id, false, true, true, true, true, true)
+        );
+        using var client = CreateClient();
+        using var response = await client.GetAsync(
+            $"/api/organizations/{organization.Id}/products?page=1&pageSize=20"
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        (document.RootElement.GetProperty("detail").GetString() ?? string.Empty)
+            .ShouldContain("commerce feature");
     }
 
     [TestCase("garbage", "api_version_malformed")]

@@ -1,6 +1,5 @@
 import {
   AccountHomePage,
-  AgentApplicationPage,
   AddressesPage,
   OrderDetailsPage,
   OrdersPage,
@@ -25,7 +24,8 @@ export default async function StorefrontRoute({
   params: Promise<{ path: string[] }>;
 }) {
   const path = (await params).path;
-  if (path.length === 1 && path[0] === "products") return <ServerCatalogPage />;
+  if (path.length === 1 && path[0] === "products")
+    return <ServerCatalogPage mode="catalog" />;
   if (path.length === 2 && path[0] === "products")
     return <ProductPage slug={path[1]!} />;
   if (path.length === 2 && path[0] === "r")
@@ -43,12 +43,6 @@ export default async function StorefrontRoute({
     return <OrdersPage />;
   if (path.length === 2 && path[0] === "account" && path[1] === "security")
     return <AccountSecurityPage />;
-  if (
-    path.length === 2 &&
-    path[0] === "account" &&
-    path[1] === "agent-application"
-  )
-    return <AgentApplicationPage />;
   if (path.length === 3 && path[0] === "account" && path[1] === "orders")
     return <OrderDetailsPage orderId={path[2]!} />;
   notFound();

@@ -5,7 +5,7 @@ using modular_mlm.Domain.Organizations;
 
 namespace modular_mlm.Application.Identity.Queries.GetAdministratorInvitations;
 
-[Authorize(Roles = Roles.Administrator)]
+[Authorize(Roles = Roles.Administrator + "," + Roles.PlatformAdministrator)]
 public sealed record GetAdministratorInvitationsQuery(
     Guid OrganizationId,
     AdministratorInvitationStatus Status,

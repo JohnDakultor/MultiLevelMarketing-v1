@@ -100,3 +100,69 @@ test("account security uses the ASP.NET Identity management contracts", async ()
     resetSharedKey: true,
   });
 });
+
+test("order history sends the backend-supported status filter", async () => {
+  const requests: string[] = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input) => {
+      requests.push(String(input));
+      return Response.json({
+        items: [],
+        page: 2,
+        pageSize: 20,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: true,
+        hasNextPage: false,
+      });
+    },
+  });
+
+  await storefrontApi.orders(api, "org-1", 2, 3);
+
+  assert.equal(
+    requests[0],
+    "/api/organizations/org-1/me/orders?page=2&pageSize=20&status=3",
+  );
+});
+
+test("catalog discovery sends server-side search filters sorting and pagination", async () => {
+  const requests: string[] = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input) => {
+      requests.push(String(input));
+      return Response.json({
+        items: [],
+        page: 3,
+        pageSize: 20,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: true,
+        hasNextPage: false,
+      });
+    },
+  });
+
+  await storefrontApi.products(api, "org-1", {
+    page: 3,
+    search: "green tea",
+    categoryId: "category-1",
+    minimumPrice: 100,
+    maximumPrice: 500,
+    availability: "InStock",
+    sort: "PriceAscending",
+  });
+
+  const [path, query] = requests[0]!.split("?");
+  assert.equal(path, "/api/organizations/org-1/products");
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(query)), {
+    page: "3",
+    pageSize: "24",
+    availability: "InStock",
+    sort: "PriceAscending",
+    search: "green tea",
+    categoryId: "category-1",
+    minimumPrice: "100",
+    maximumPrice: "500",
+  });
+});

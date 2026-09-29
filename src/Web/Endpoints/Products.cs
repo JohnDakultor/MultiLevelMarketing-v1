@@ -6,6 +6,7 @@ using modular_mlm.Application.Catalog.Queries.GetProductCommissionProfiles;
 using modular_mlm.Application.Catalog.Queries.GetProductCommissionProfiles.Models;
 using modular_mlm.Application.Catalog.Queries.GetProducts;
 using modular_mlm.Application.Catalog.Queries.GetProducts.Models;
+using modular_mlm.Application.Common.Models;
 using modular_mlm.Domain.Constants;
 
 namespace modular_mlm.Web.Endpoints;
@@ -31,12 +32,35 @@ public sealed class Products : IEndpointGroup
             .RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
     }
 
-    public static async Task<Ok<IReadOnlyList<ProductDto>>> GetProducts(
+    public static async Task<Ok<PagedResponse<ProductDto>>> GetProducts(
         ISender sender,
         Guid organizationId,
         int page = 1,
-        int pageSize = 20
-    ) => TypedResults.Ok(await sender.Send(new GetProductsQuery(organizationId, page, pageSize)));
+        int pageSize = 20,
+        string? search = null,
+        Guid? categoryId = null,
+        string? categorySlug = null,
+        decimal? minimumPrice = null,
+        decimal? maximumPrice = null,
+        ProductAvailability availability = ProductAvailability.Any,
+        ProductSort sort = ProductSort.Newest
+    ) =>
+        TypedResults.Ok(
+            await sender.Send(
+                new GetProductsQuery(
+                    organizationId,
+                    page,
+                    pageSize,
+                    search,
+                    categoryId,
+                    categorySlug,
+                    minimumPrice,
+                    maximumPrice,
+                    availability,
+                    sort
+                )
+            )
+        );
 
     public static async Task<Created<Guid>> CreateProduct(
         ISender sender,

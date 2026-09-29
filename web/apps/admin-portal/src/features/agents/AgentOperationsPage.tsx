@@ -4,6 +4,7 @@ import {
   useApiQuery,
   useFormSubmission,
 } from "@modular-mlm/api-client";
+import { AgentStatus } from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
@@ -13,11 +14,13 @@ import {
   InputField,
   PageHeader,
   SelectField,
+  StatusBadge,
   useConfirmation,
 } from "@modular-mlm/design-system";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, date, useAdminScope } from "../shared/AdminState";
+import { agentStatus } from "../shared/status";
 
 export function AgentOperationsPage() {
   const api = useApiClient();
@@ -25,14 +28,21 @@ export function AgentOperationsPage() {
   const scope = useAdminScope();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [message, setMessage] = useState("");
   const [actingAction, setActingAction] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const lifecycle = useFormSubmission();
   const agents = useApiQuery(
     (client, signal) =>
-      adminApi.agents(client, scope.organizationId, page, search, signal),
-    [scope.organizationId, page, search],
+      adminApi.agents(
+        client,
+        scope.organizationId,
+        page,
+        deferredSearch,
+        signal,
+      ),
+    [scope.organizationId, page, deferredSearch],
     scope.isReady,
   );
   const applications = useApiQuery(
@@ -77,6 +87,7 @@ export function AgentOperationsPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Network"
         title="Agent operations"
         description="Review applications and manage lifecycle within the current organization."
       />
@@ -123,18 +134,13 @@ export function AgentOperationsPage() {
             {
               key: "status",
               header: "Status",
-              cell: (row) =>
-                row.status === 5
-                  ? "Rejected"
-                  : row.status === 1
-                    ? "Pending approval"
-                    : "Applied",
+              cell: (row) => <AgentStatusBadge value={row.status} />,
             },
             {
               key: "actions",
               header: "Actions",
               cell: (row) => {
-                const canReview = row.status === 0 || row.status === 1;
+                const canReview = row.status === AgentStatus.pendingApproval;
                 if (!canReview) return <span>No actions available</span>;
                 return (
                   <>
@@ -199,7 +205,11 @@ export function AgentOperationsPage() {
               </>
             ),
           },
-          { key: "status", header: "Status", cell: (row) => row.status },
+          {
+            key: "status",
+            header: "Status",
+            cell: (row) => <AgentStatusBadge value={row.status} />,
+          },
           {
             key: "sponsor",
             header: "Sponsor",
@@ -209,80 +219,116 @@ export function AgentOperationsPage() {
             key: "placement",
             header: "Placement",
             cell: (row) =>
-              row.isPlaced
-                ? `Placed · ${row.placementSide === 0 ? "Left" : "Right"}`
-                : "Unplaced",
+              row.sponsorAgentId === null
+                ? "Founding root"
+                : row.isPlaced
+                  ? `Placed · ${row.placementSide === 0 ? "Left" : "Right"}`
+                  : "Unplaced",
           },
           {
             key: "actions",
             header: "Lifecycle",
-            cell: (row) => (
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedAgentId(row.agentId)}
-                >
-                  Details
-                </Button>{" "}
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    void action(row.agentId, row.agentCode, "activate")
-                  }
-                >
-                  Activate
-                </Button>{" "}
-                <Button
-                  variant="danger"
-                  onClick={() =>
-                    void action(row.agentId, row.agentCode, "suspend")
-                  }
-                >
-                  Suspend
-                </Button>{" "}
-                <Button
-                  variant="ghost"
-                  onClick={() =>
-                    void action(row.agentId, row.agentCode, "reactivate")
-                  }
-                >
-                  Reactivate
-                </Button>
-                {!row.isPlaced && (
+            cell: (row) => {
+              const canActivate = row.status === AgentStatus.inactive;
+              const canSuspend = row.status === AgentStatus.active;
+              const canReactivate = row.status === AgentStatus.suspended;
+              const canPlace =
+                row.status === AgentStatus.active &&
+                !row.isPlaced &&
+                row.sponsorAgentId !== null;
+              return (
+                <div className="button-cluster">
                   <Button
-                    variant="secondary"
-                    onClick={async () => {
-                      if (
-                        !(await confirm({
-                          title: "Automatically place Agent?",
-                          description: `Place Agent ${row.agentCode} using the organization's configured placement strategy?`,
-                          confirmLabel: "Place Agent",
-                        }))
-                      )
-                        return;
-                      await adminApi.autoPlaceAgent(
-                        api,
-                        scope.organizationId,
-                        row.agentId,
-                      );
-                      setMessage(`Agent ${row.agentCode} placed.`);
-                      agents.reload();
-                    }}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedAgentId(row.agentId)}
                   >
-                    Auto-place
-                  </Button>
-                )}
-                <WalletAdjustment
-                  agentId={row.agentId}
-                  agentCode={row.agentCode}
-                  onSaved={() => {
-                    setMessage(
-                      `Wallet adjustment recorded for ${row.agentCode}.`,
-                    );
-                  }}
-                />
-              </>
-            ),
+                    Details
+                  </Button>{" "}
+                  {canActivate && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={lifecycle.isSubmitting}
+                      isLoading={actingAction === `${row.agentId}:activate`}
+                      onClick={() =>
+                        void action(row.agentId, row.agentCode, "activate")
+                      }
+                    >
+                      Activate
+                    </Button>
+                  )}
+                  {canSuspend && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={lifecycle.isSubmitting}
+                      isLoading={actingAction === `${row.agentId}:suspend`}
+                      onClick={() =>
+                        void action(row.agentId, row.agentCode, "suspend")
+                      }
+                    >
+                      Suspend
+                    </Button>
+                  )}
+                  {canReactivate && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={lifecycle.isSubmitting}
+                      isLoading={actingAction === `${row.agentId}:reactivate`}
+                      onClick={() =>
+                        void action(row.agentId, row.agentCode, "reactivate")
+                      }
+                    >
+                      Reactivate
+                    </Button>
+                  )}
+                  {canPlace && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        if (
+                          !(await confirm({
+                            title: "Automatically place Agent?",
+                            description: `Place Agent ${row.agentCode} using the organization's configured placement strategy?`,
+                            confirmLabel: "Place Agent",
+                          }))
+                        )
+                          return;
+                        const completed = await lifecycle.submit(
+                          () =>
+                            adminApi.autoPlaceAgent(
+                              api,
+                              scope.organizationId,
+                              row.agentId,
+                            ),
+                          `Agent ${row.agentCode} placed.`,
+                        );
+                        if (completed) {
+                          setMessage(`Agent ${row.agentCode} placed.`);
+                          agents.reload();
+                        }
+                      }}
+                    >
+                      Auto-place
+                    </Button>
+                  )}
+                  {row.status === AgentStatus.active && (
+                    <WalletAdjustment
+                      agentId={row.agentId}
+                      agentCode={row.agentCode}
+                      onSaved={() => {
+                        setMessage(
+                          `Wallet adjustment recorded for ${row.agentCode}.`,
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            },
           },
         ]}
       />
@@ -321,6 +367,11 @@ export function AgentOperationsPage() {
       )}
     </div>
   );
+}
+
+function AgentStatusBadge({ value }: { value: number }) {
+  const status = agentStatus(value);
+  return <StatusBadge label={status.label} tone={status.tone} />;
 }
 
 function AgentDetails({
@@ -388,97 +439,116 @@ function AgentDetails({
         <div>
           <h2>{agent.displayName}</h2>
           <p>
-            {agent.agentCode} · {agent.email} · {agent.qualificationState}
+            {agent.agentCode} · {agent.email}
           </p>
+          <div className="action-row">
+            <AgentStatusBadge value={agent.status} />
+            <StatusBadge
+              label={`Qualification: ${agent.qualificationState}`}
+              tone="neutral"
+            />
+          </div>
         </div>
         <Button variant="ghost" onClick={close}>
           Close
         </Button>
       </div>
-      <Alert
-        title={agent.placement.moveEligibilityReason}
-        tone={agent.placement.isMoveEligible ? "info" : "warning"}
-      />
+      {agent.sponsorAgentId !== null && (
+        <Alert
+          title={agent.placement.moveEligibilityReason}
+          tone={agent.placement.isMoveEligible ? "info" : "warning"}
+        />
+      )}
       <FormErrorSummary
         errors={feedback.fieldErrors}
         generalErrors={feedback.formErrors}
         id={feedback.errorSummaryId}
       />
-      <form
-        className="form-grid"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          const parentId = String(data.get("parentAgentId"));
-          const side = Number(data.get("side"));
-          const operation = agent.placement.isPlaced
-            ? () =>
-                adminApi.moveAgentPlacement(
-                  api,
-                  scope.organizationId,
-                  agentId,
-                  {
-                    newParentAgentId: parentId,
-                    newSide: side,
-                    expectedCurrentParentAgentId: agent.placement.parentAgentId,
-                    expectedCurrentSide: agent.placement.side,
-                    reason: String(data.get("reason")),
-                  },
-                )
-            : () =>
-                adminApi.placeAgent(
-                  api,
-                  scope.organizationId,
-                  agentId,
-                  parentId,
-                  side,
-                );
-          void submit(
-            operation,
-            agent.placement.isPlaced ? "Move placement" : "Place Agent",
-            `${agent.placement.isPlaced ? "Move" : "Place"} ${agent.agentCode} under the selected Agent?`,
-            "Agent placement updated.",
-          );
-        }}
-      >
-        <h3>
-          {agent.placement.isPlaced
-            ? "Move uncommitted placement"
-            : "Manual placement"}
-        </h3>
-        <SelectField
-          name="parentAgentId"
-          label="Parent Agent"
-          required
-          defaultValue={agent.placement.parentAgentId ?? ""}
+      {agent.sponsorAgentId === null ? (
+        <Alert title="Founding network root" tone="info">
+          This is the organization&apos;s first Agent. A root has no sponsor or
+          placement parent, so no placement action is required.
+        </Alert>
+      ) : (
+        <form
+          className="form-grid"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const parentId = String(data.get("parentAgentId"));
+            const side = Number(data.get("side"));
+            const operation = agent.placement.isPlaced
+              ? () =>
+                  adminApi.moveAgentPlacement(
+                    api,
+                    scope.organizationId,
+                    agentId,
+                    {
+                      newParentAgentId: parentId,
+                      newSide: side,
+                      expectedCurrentParentAgentId:
+                        agent.placement.parentAgentId,
+                      expectedCurrentSide: agent.placement.side,
+                      reason: String(data.get("reason")),
+                    },
+                  )
+              : () =>
+                  adminApi.placeAgent(
+                    api,
+                    scope.organizationId,
+                    agentId,
+                    parentId,
+                    side,
+                  );
+            void submit(
+              operation,
+              agent.placement.isPlaced ? "Move placement" : "Place Agent",
+              `${agent.placement.isPlaced ? "Move" : "Place"} ${agent.agentCode} under the selected Agent?`,
+              "Agent placement updated.",
+            );
+          }}
         >
-          <option value="">Select an Agent</option>
-          {candidates.map((candidate) => (
-            <option key={candidate.agentId} value={candidate.agentId}>
-              {candidate.agentCode} · {candidate.displayName}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          name="side"
-          label="Placement side"
-          required
-          defaultValue={agent.placement.side ?? 0}
-        >
-          <option value="0">Left</option>
-          <option value="1">Right</option>
-        </SelectField>
-        {agent.placement.isPlaced && (
-          <InputField name="reason" label="Move reason" required />
-        )}
-        <Button
-          type="submit"
-          disabled={agent.placement.isPlaced && !agent.placement.isMoveEligible}
-          isLoading={feedback.isSubmitting}
-        >
-          {agent.placement.isPlaced ? "Move placement" : "Place Agent"}
-        </Button>
-      </form>
+          <h3>
+            {agent.placement.isPlaced
+              ? "Move uncommitted placement"
+              : "Manual placement"}
+          </h3>
+          <SelectField
+            name="parentAgentId"
+            label="Parent Agent"
+            required
+            defaultValue={agent.placement.parentAgentId ?? ""}
+          >
+            <option value="">Select an Agent</option>
+            {candidates.map((candidate) => (
+              <option key={candidate.agentId} value={candidate.agentId}>
+                {candidate.agentCode} · {candidate.displayName}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            name="side"
+            label="Placement side"
+            required
+            defaultValue={agent.placement.side ?? 0}
+          >
+            <option value="0">Left</option>
+            <option value="1">Right</option>
+          </SelectField>
+          {agent.placement.isPlaced && (
+            <InputField name="reason" label="Move reason" required />
+          )}
+          <Button
+            type="submit"
+            disabled={
+              agent.placement.isPlaced && !agent.placement.isMoveEligible
+            }
+            isLoading={feedback.isSubmitting}
+          >
+            {agent.placement.isPlaced ? "Move placement" : "Place Agent"}
+          </Button>
+        </form>
+      )}
       <form
         className="form-grid"
         onSubmit={(event) => {

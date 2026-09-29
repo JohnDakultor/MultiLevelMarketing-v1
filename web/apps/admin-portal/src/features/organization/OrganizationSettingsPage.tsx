@@ -40,6 +40,8 @@ export function OrganizationSettingsPage() {
   if (settings.isLoading || wallet.isLoading) return <Loading />;
   if (settings.error)
     return <Failure error={settings.error} retry={settings.reload} />;
+  if (wallet.error)
+    return <Failure error={wallet.error} retry={wallet.reload} />;
   if (!settings.data)
     return (
       <EmptyState
@@ -65,6 +67,7 @@ export function OrganizationSettingsPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Configuration"
         title="Organization settings"
         description="All changes are scoped to the organization resolved by this portal."
       />
@@ -412,35 +415,79 @@ export function OrganizationSettingsPage() {
       <Card>
         <h2>Domains</h2>
         {settings.data.domains.map((domain) => (
-          <div key={domain.id} className="action-row">
-            <span>
-              <strong>{domain.hostName}</strong>
-              <br />
-              {domain.isPrimary ? "Primary" : "Secondary"} ·{" "}
-              {domain.isVerified
-                ? `Verified ${date(domain.verifiedAt)}`
-                : "Pending verification"}
-            </span>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                if (
-                  !(await confirm({
-                    title: "Remove organization domain?",
-                    description: `Remove ${domain.hostName}? Requests using that hostname will stop resolving this organization.`,
-                    confirmLabel: "Remove domain",
-                  }))
-                )
-                  return;
-                await save(
-                  () =>
-                    adminApi.removeDomain(api, scope.organizationId, domain.id),
-                  "Domain removed.",
-                );
-              }}
-            >
-              Remove
-            </Button>
+          <div key={domain.id} className="content-stack">
+            <div className="action-row">
+              <span>
+                <strong>{domain.hostName}</strong>
+                <br />
+                {domain.isPrimary ? "Primary" : "Secondary"} ·{" "}
+                {domain.isVerified
+                  ? `Verified ${date(domain.verifiedAt)}`
+                  : "Pending verification"}
+              </span>
+              <div className="action-row">
+                {!domain.isVerified && (
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      void save(
+                        () =>
+                          adminApi.verifyDomain(
+                            api,
+                            scope.organizationId,
+                            domain.id,
+                          ),
+                        "Domain verified.",
+                      )
+                    }
+                  >
+                    Verify DNS
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  onClick={async () => {
+                    if (
+                      !(await confirm({
+                        title: "Remove organization domain?",
+                        description: `Remove ${domain.hostName}? Requests using that hostname will stop resolving this organization.`,
+                        confirmLabel: "Remove domain",
+                      }))
+                    )
+                      return;
+                    await save(
+                      () =>
+                        adminApi.removeDomain(
+                          api,
+                          scope.organizationId,
+                          domain.id,
+                        ),
+                      "Domain removed.",
+                    );
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+            {!domain.isVerified && (
+              <Alert title="DNS verification required" tone="warning">
+                Add a TXT record named{" "}
+                <code>{domain.verificationRecordName}</code> with the value{" "}
+                <code>{domain.verificationToken}</code>, wait for DNS
+                propagation, and then select Verify DNS.
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(domain.verificationToken)
+                      .then(() => setMessage("Verification value copied."))
+                  }
+                >
+                  Copy value
+                </Button>
+              </Alert>
+            )}
           </div>
         ))}
         <form

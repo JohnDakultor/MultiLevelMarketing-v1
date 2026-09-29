@@ -2,6 +2,8 @@
 
 import { useApiClient, useApiQuery } from "@modular-mlm/api-client";
 import {
+  Alert,
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -10,27 +12,77 @@ import {
   SelectField,
   ToastRegion,
 } from "@modular-mlm/design-system";
-import type { CategoryDto, ProductDto } from "@modular-mlm/contracts";
+import type {
+  CategoryDto,
+  ProductDto,
+  ProductPage,
+} from "@modular-mlm/contracts";
 import { useOrganization } from "@modular-mlm/organization-context";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { storefrontApi } from "../api/storefrontApi";
 import { ScreenError, ScreenLoading, money } from "../shared/ScreenState";
+import {
+  ProductCard,
+  ProductImagePlaceholder,
+  StorefrontHero,
+  StorefrontSectionHeader,
+  TrustStrip,
+} from "../shared/StorefrontPrimitives";
 
 export function CatalogPage({
+  mode = "catalog",
   initialProducts,
   initialCategories,
 }: {
-  initialProducts?: ProductDto[];
+  mode?: "home" | "catalog";
+  initialProducts?: ProductPage;
   initialCategories?: CategoryDto[];
 } = {}) {
   const { organization } = useOrganization();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [availability, setAvailability] = useState<
+    "Any" | "InStock" | "OutOfStock"
+  >("Any");
+  const [sort, setSort] = useState<
+    | "Newest"
+    | "PriceAscending"
+    | "PriceDescending"
+    | "NameAscending"
+    | "NameDescending"
+  >("Newest");
+  const [minimumPrice, setMinimumPrice] = useState("");
+  const [maximumPrice, setMaximumPrice] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const products = useApiQuery(
     (api, signal) =>
-      storefrontApi.products(api, organization!.id, page, signal),
-    [organization?.id, page],
+      storefrontApi.products(
+        api,
+        organization!.id,
+        {
+          page,
+          search: debouncedSearch.trim() || undefined,
+          categoryId: categoryId || undefined,
+          minimumPrice: optionalNumber(minimumPrice),
+          maximumPrice: optionalNumber(maximumPrice),
+          availability,
+          sort,
+        },
+        signal,
+      ),
+    [
+      organization?.id,
+      page,
+      debouncedSearch,
+      categoryId,
+      minimumPrice,
+      maximumPrice,
+      availability,
+      sort,
+    ],
     Boolean(organization),
     page === 1 ? initialProducts : undefined,
   );
@@ -40,85 +92,166 @@ export function CatalogPage({
     Boolean(organization),
     initialCategories,
   );
-  const shown = useMemo(
-    () =>
-      products.data?.filter((product) =>
-        product.name
-          .toLocaleLowerCase()
-          .includes(search.trim().toLocaleLowerCase()),
-      ) ?? [],
-    [products.data, search],
-  );
+  const shown =
+    mode === "home"
+      ? (products.data?.items ?? []).slice(0, 8)
+      : (products.data?.items ?? []);
 
   if (products.isLoading || categories.isLoading) return <ScreenLoading />;
   if (products.error)
     return <ScreenError error={products.error} retry={products.reload} />;
+
+  const currency = organization?.currencyCode ?? "PHP";
+  const storeName = organization?.storeTitle || organization?.name || "Shop";
+
+  if (mode === "home") {
+    return (
+      <div className="storefront-home">
+        <StorefrontHero
+          storeName={storeName}
+          productCount={products.data?.totalCount ?? 0}
+          categoryCount={categories.data?.length ?? 0}
+        />
+        {categories.data?.length ? (
+          <section
+            className="storefront-section"
+            aria-labelledby="collections-title"
+          >
+            <StorefrontSectionHeader
+              eyebrow="Explore"
+              title="Shop by collection"
+              description="Explore the collections available in this shop."
+              action={
+                <Link className="storefront-text-link" href="/products">
+                  View all products <span aria-hidden>→</span>
+                </Link>
+              }
+            />
+            <div className="storefront-category-list" id="collections-title">
+              {categories.data.map((category, index) => (
+                <div className="storefront-category-card" key={category.id}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <strong>{category.name}</strong>
+                  <small>Collection</small>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        <section className="storefront-section" id="featured-products">
+          <StorefrontSectionHeader
+            eyebrow="Featured"
+            title="Fresh from the catalog"
+            description="Recently available products with current prices."
+            action={
+              <Link className="storefront-text-link" href="/products">
+                Shop everything <span aria-hidden>→</span>
+              </Link>
+            }
+          />
+          <ProductResults products={shown} currency={currency} />
+        </section>
+        <TrustStrip />
+      </div>
+    );
+  }
+
   return (
-    <div className="content-stack">
+    <div className="content-stack storefront-catalog-page">
       <PageHeader
-        eyebrow="Marketplace"
-        title={organization?.storeTitle ?? "Products"}
-        description="Current prices and business volume come directly from the marketplace."
+        eyebrow="The collection"
+        title="Shop all products"
+        description={`Explore the latest products from ${storeName}.`}
       />
-      <div className="toolbar">
+      <div className="storefront-catalog-toolbar">
         <InputField
           id="catalog-search"
-          label="Search this page"
+          label="Search products"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Product name"
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+          placeholder="Search product names"
+          type="search"
         />
         <SelectField
-          id="category-reference"
-          label="Browse categories"
-          defaultValue=""
+          id="catalog-category"
+          label="Collection"
+          value={categoryId}
+          onChange={(event) => {
+            setCategoryId(event.target.value);
+            setPage(1);
+          }}
         >
-          <option value="">All categories</option>
+          <option value="">All collections</option>
           {categories.data?.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
         </SelectField>
-      </div>
-      <p className="supporting-copy">
-        The API currently supports catalog paging, but not server-side search or
-        category filtering. Search applies only to this loaded page.
-      </p>
-      {shown.length === 0 ? (
-        <EmptyState
-          title="No products on this page"
-          description="Try another search or return when the catalog has published products."
+        <SelectField
+          id="catalog-availability"
+          label="Availability"
+          value={availability}
+          onChange={(event) => {
+            setAvailability(event.target.value as typeof availability);
+            setPage(1);
+          }}
+        >
+          <option value="Any">Any availability</option>
+          <option value="InStock">In stock</option>
+          <option value="OutOfStock">Out of stock</option>
+        </SelectField>
+        <InputField
+          id="catalog-minimum-price"
+          label="Minimum price"
+          type="number"
+          min={0}
+          step="0.01"
+          value={minimumPrice}
+          onChange={(event) => {
+            setMinimumPrice(event.target.value);
+            setPage(1);
+          }}
         />
-      ) : (
-        <div className="product-grid">
-          {shown.map((product) => (
-            <Card key={product.id} className="product-card">
-              {product.imageUrl ? (
-                <Image
-                  src={product.imageUrl}
-                  alt=""
-                  width={360}
-                  height={240}
-                  unoptimized
-                />
-              ) : (
-                <div className="product-image-placeholder" aria-hidden />
-              )}
-              <div>
-                <h2>
-                  <a href={`/products/${product.slug}`}>{product.name}</a>
-                </h2>
-                <p>
-                  {money(product.price, organization?.currencyCode ?? "PHP")}
-                </p>
-                <small>{product.businessVolume} BV</small>
-              </div>
-            </Card>
-          ))}
+        <InputField
+          id="catalog-maximum-price"
+          label="Maximum price"
+          type="number"
+          min={0}
+          step="0.01"
+          value={maximumPrice}
+          onChange={(event) => {
+            setMaximumPrice(event.target.value);
+            setPage(1);
+          }}
+        />
+        <SelectField
+          id="catalog-sort"
+          label="Sort"
+          value={sort}
+          onChange={(event) => {
+            setSort(event.target.value as typeof sort);
+            setPage(1);
+          }}
+        >
+          <option value="Newest">Newest</option>
+          <option value="PriceAscending">Price: low to high</option>
+          <option value="PriceDescending">Price: high to low</option>
+          <option value="NameAscending">Name: A to Z</option>
+          <option value="NameDescending">Name: Z to A</option>
+        </SelectField>
+        <div className="storefront-catalog-toolbar__summary" aria-live="polite">
+          <strong>{products.data?.totalCount ?? 0}</strong>
+          <span>
+            {products.data?.totalCount === 1 ? "product" : "products"}
+          </span>
         </div>
-      )}
-      <div className="pagination-row">
+      </div>
+      <ProductResults products={shown} currency={currency} />
+      <div className="pagination-row storefront-pagination">
         <Button
           variant="secondary"
           disabled={page === 1}
@@ -126,15 +259,53 @@ export function CatalogPage({
         >
           Previous
         </Button>
-        <span>Page {page}</span>
+        <span aria-live="polite">Page {page}</span>
         <Button
           variant="secondary"
-          disabled={(products.data?.length ?? 0) < 24}
+          disabled={!products.data?.hasNextPage}
           onClick={() => setPage((value) => value + 1)}
         >
           Next
         </Button>
       </div>
+    </div>
+  );
+}
+
+function optionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [delay, value]);
+  return debounced;
+}
+
+function ProductResults({
+  products,
+  currency,
+}: {
+  products: ProductDto[];
+  currency: string;
+}) {
+  if (!products.length)
+    return (
+      <EmptyState
+        title="No matching products"
+        description="Try a different search or return when more products have been published."
+      />
+    );
+  return (
+    <div className="storefront-product-grid">
+      {products.map((product) => (
+        <ProductCard key={product.id} product={product} currency={currency} />
+      ))}
     </div>
   );
 }
@@ -145,6 +316,9 @@ export function ProductPage({ slug }: { slug: string }) {
   const [variantId, setVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "danger">(
+    "success",
+  );
   const [isAdding, setAdding] = useState(false);
   const product = useApiQuery(
     (client, signal) =>
@@ -159,101 +333,151 @@ export function ProductPage({ slug }: { slug: string }) {
     return (
       <EmptyState
         title="Product unavailable"
-        description="This product may have been unpublished or removed. Return to the catalog to continue shopping."
-        action={<a href="/products">Return to products</a>}
+        description="This product may have been unpublished or removed."
+        action={<Link href="/products">Return to products</Link>}
       />
     );
+
   const selected =
     product.data.variants.find((variant) => variant.id === variantId) ??
     product.data.variants[0];
+  const hasPurchasableVariant = product.data.variants.some(
+    (variant) => variant.isInStock,
+  );
+
   return (
-    <div className="content-stack">
-      <PageHeader
-        eyebrow={product.data.categoryName}
-        title={product.data.name}
-        description={product.data.description}
-      />
-      <div className="detail-grid">
-        <Card>
+    <div className="content-stack storefront-product-page">
+      <nav className="storefront-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/">Home</Link>
+        <span aria-hidden>/</span>
+        <Link href="/products">Shop</Link>
+        <span aria-hidden>/</span>
+        <span aria-current="page">{product.data.name}</span>
+      </nav>
+      <div className="storefront-product-detail">
+        <div className="storefront-product-detail__media">
           {product.data.defaultImageUrl ? (
             <Image
               className="product-detail-image"
               src={product.data.defaultImageUrl}
-              alt=""
-              width={640}
-              height={480}
+              alt={product.data.name}
+              width={760}
+              height={900}
+              sizes="(max-width: 768px) 100vw, 55vw"
+              priority
               unoptimized
             />
           ) : (
-            <div className="product-image-placeholder" />
+            <ProductImagePlaceholder label={`${product.data.name} image`} />
           )}
-        </Card>
-        <Card>
-          <p>{product.data.brand}</p>
-          <SelectField
-            id="variant"
-            label="Variant"
-            value={selected?.id ?? ""}
-            onChange={(event) => setVariantId(event.target.value)}
-          >
-            {product.data.variants.map((variant) => (
-              <option
-                key={variant.id}
-                value={variant.id}
-                disabled={!variant.isInStock}
-              >
-                {variant.sku} —{" "}
-                {money(variant.price, product.data!.currencyCode)}{" "}
-                {!variant.isInStock ? "(Unavailable)" : ""}
-              </option>
-            ))}
-          </SelectField>
-          <InputField
-            id="quantity"
-            label="Quantity"
-            type="number"
-            min={1}
-            max={selected?.stockQuantity ?? undefined}
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.valueAsNumber)}
-          />
-          <p>
+        </div>
+        <Card className="storefront-product-detail__purchase">
+          <div className="storefront-product-detail__heading">
+            <div>
+              <p className="storefront-kicker">{product.data.categoryName}</p>
+              <h1>{product.data.name}</h1>
+              {product.data.brand && <p>by {product.data.brand}</p>}
+            </div>
+            <Badge tone={hasPurchasableVariant ? "success" : "danger"}>
+              {hasPurchasableVariant ? "In stock" : "Out of stock"}
+            </Badge>
+          </div>
+          <p className="storefront-product-detail__price">
             {selected
-              ? `${selected.businessVolume} BV per item`
-              : "No purchasable variants"}
+              ? money(selected.price, product.data.currencyCode)
+              : "Unavailable"}
           </p>
-          <Button
-            disabled={!selected?.isInStock || quantity < 1}
-            isLoading={isAdding}
-            loadingLabel="Adding"
-            onClick={async () => {
-              if (!selected || !organization) return;
-              setAdding(true);
-              setMessage("");
-              try {
-                await storefrontApi.addCartItem(
-                  api,
-                  organization.id,
-                  selected.id,
-                  quantity,
-                );
-                setMessage("Added to your cart.");
-              } catch (error) {
-                setMessage(
-                  error instanceof Error
-                    ? error.message
-                    : "Could not add this item.",
-                );
-              } finally {
-                setAdding(false);
+          <p className="storefront-product-detail__description">
+            {product.data.description}
+          </p>
+          <div className="storefront-purchase-form">
+            <SelectField
+              id="variant"
+              label="Choose a variant"
+              value={selected?.id ?? ""}
+              onChange={(event) => {
+                setVariantId(event.target.value);
+                setQuantity(1);
+              }}
+            >
+              {product.data.variants.map((variant) => (
+                <option
+                  key={variant.id}
+                  value={variant.id}
+                  disabled={!variant.isInStock}
+                >
+                  {variant.sku} —{" "}
+                  {money(variant.price, product.data!.currencyCode)}
+                  {!variant.isInStock ? " (Unavailable)" : ""}
+                </option>
+              ))}
+            </SelectField>
+            <InputField
+              id="quantity"
+              label="Quantity"
+              type="number"
+              min={1}
+              max={selected?.stockQuantity ?? undefined}
+              value={Number.isFinite(quantity) ? quantity : ""}
+              onChange={(event) => setQuantity(event.target.valueAsNumber)}
+              hint={
+                selected?.stockQuantity == null
+                  ? undefined
+                  : `${selected.stockQuantity} available`
               }
-            }}
-          >
-            Add to cart
-          </Button>
-          <ToastRegion>{message && <p>{message}</p>}</ToastRegion>
+            />
+            <Button
+              disabled={
+                !selected?.isInStock ||
+                !Number.isInteger(quantity) ||
+                quantity < 1 ||
+                (selected.stockQuantity != null &&
+                  quantity > selected.stockQuantity)
+              }
+              isLoading={isAdding}
+              loadingLabel="Adding to cart"
+              onClick={async () => {
+                if (!selected || !organization) return;
+                setAdding(true);
+                setMessage("");
+                try {
+                  await storefrontApi.addCartItem(
+                    api,
+                    organization.id,
+                    selected.id,
+                    quantity,
+                  );
+                  setMessageTone("success");
+                  setMessage("Added to your cart.");
+                } catch (error) {
+                  setMessageTone("danger");
+                  setMessage(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not add this item.",
+                  );
+                } finally {
+                  setAdding(false);
+                }
+              }}
+            >
+              Add to cart
+            </Button>
+            <Link className="ds-button ds-button--secondary" href="/cart">
+              View cart
+            </Link>
+          </div>
+          <ul className="storefront-purchase-assurances">
+            <li>Live stock validation at checkout</li>
+            <li>Secure payment</li>
+            <li>Order tracking from your account</li>
+          </ul>
+          <ToastRegion>
+            {message && <Alert title={message} tone={messageTone} />}
+          </ToastRegion>
         </Card>
       </div>
+      <TrustStrip />
     </div>
   );
 }
@@ -261,7 +485,7 @@ export function ProductPage({ slug }: { slug: string }) {
 export function ReferralStorePage({ code }: { code: string }) {
   const api = useApiClient();
   const { organization } = useOrganization();
-  const [attribution, setAttribution] = useState("Connecting referral…");
+  const [attribution, setAttribution] = useState("Opening your collection…");
   const store = useApiQuery(
     (client, signal) =>
       storefrontApi.referralStore(client, organization!.id, code, 1, signal),
@@ -272,8 +496,8 @@ export function ReferralStorePage({ code }: { code: string }) {
     if (!organization) return;
     void storefrontApi
       .resolveReferral(api, organization.id, code)
-      .then(() => setAttribution("Referral attribution applied."))
-      .catch(() => setAttribution("This referral link could not be applied."));
+      .then(() => setAttribution("Your shopping link is active."))
+      .catch(() => setAttribution("This shopping link could not be opened."));
   }, [api, code, organization]);
   if (store.isLoading) return <ScreenLoading />;
   if (store.error)
@@ -281,29 +505,55 @@ export function ReferralStorePage({ code }: { code: string }) {
   return (
     <div className="content-stack">
       <PageHeader
-        title={`Agent ${store.data?.agentCode ?? "store"}`}
+        eyebrow="Recommended for you"
+        title="Your selected collection"
         description={attribution}
       />
       {!store.data?.products.length ? (
         <EmptyState
-          title="No referred products"
-          description="This Agent storefront has no published products yet."
+          title="No products yet"
+          description="There are no products in this collection yet."
         />
       ) : (
-        <div className="product-grid">
+        <div className="storefront-product-grid">
           {store.data.products.map((product) => (
-            <Card key={product.productId}>
-              <h2>
-                <a href={`/products/${product.slug}`}>{product.name}</a>
-              </h2>
-              <p>{product.description}</p>
-              <p>
-                {money(
-                  product.startingPrice,
-                  organization?.currencyCode ?? "PHP",
+            <article
+              className="storefront-product-card"
+              key={product.productId}
+            >
+              <Link
+                className="storefront-product-card__media"
+                href={`/products/${product.slug}`}
+              >
+                {product.imageUrl ? (
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    width={560}
+                    height={680}
+                    unoptimized
+                  />
+                ) : (
+                  <ProductImagePlaceholder label={`${product.name} image`} />
                 )}
-              </p>
-            </Card>
+              </Link>
+              <div className="storefront-product-card__body">
+                <div>
+                  <h3>
+                    <Link href={`/products/${product.slug}`}>
+                      {product.name}
+                    </Link>
+                  </h3>
+                  <p>{product.description}</p>
+                </div>
+                <strong>
+                  {money(
+                    product.startingPrice,
+                    organization?.currencyCode ?? "PHP",
+                  )}
+                </strong>
+              </div>
+            </article>
           ))}
         </div>
       )}

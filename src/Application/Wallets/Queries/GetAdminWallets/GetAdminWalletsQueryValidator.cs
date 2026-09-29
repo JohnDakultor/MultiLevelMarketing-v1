@@ -12,7 +12,7 @@ public sealed class GetAdminWalletsQueryValidator : AbstractValidator<GetAdminWa
             .When(query => query.Status.HasValue);
         RuleFor(query => query.Search)
             .MaximumLength(100)
-            .Must(search => search is null || search.Trim().Length > 0)
+            .Must(search => string.IsNullOrEmpty(search) || search.Trim().Length > 0)
             .WithMessage("Search cannot contain only whitespace.");
     }
 }

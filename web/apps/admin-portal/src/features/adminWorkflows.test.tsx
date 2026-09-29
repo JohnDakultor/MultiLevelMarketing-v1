@@ -11,6 +11,7 @@ import { CatalogInventoryPage } from "./catalog/CatalogInventoryPage";
 import { AdminOrdersPage } from "./orders/AdminOrdersPage";
 import { OrganizationSettingsPage } from "./organization/OrganizationSettingsPage";
 import { PayoutAdministrationPage } from "./payouts/PayoutAdministrationPage";
+import { FinanceAdministrationPage } from "./finance/FinanceAdministrationPage";
 
 afterEach(cleanup);
 
@@ -57,7 +58,49 @@ function responseFor(url: string): Response {
       totalCount: 0,
       hasNextPage: false,
     });
+  if (url.includes("/admin/payouts/accounts"))
+    return Response.json({
+      organizationId: organization.id,
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    });
   if (url.includes("/admin/payouts")) return Response.json([]);
+  if (url.includes("/admin/wallets"))
+    return Response.json({
+      organizationId: organization.id,
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    });
+  if (url.includes("/admin/commissions"))
+    return Response.json({
+      organizationId: organization.id,
+      currency: "PHP",
+      items: [],
+      totals: {
+        netAmount: 0,
+        pendingAmount: 0,
+        availableAmount: 0,
+        heldAmount: 0,
+        paidAmount: 0,
+        reversalAmount: 0,
+      },
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    });
   if (url.includes("/admin/orders"))
     return Response.json({
       items: [],
@@ -170,6 +213,53 @@ test("Step 3 Admin screens render explicit empty states without raw identifier i
 test("Organization settings expose the network policy returned by the API", async () => {
   const view = renderAdmin(<OrganizationSettingsPage />);
   assert.ok(await view.findByRole("heading", { name: "Network" }));
+});
+
+test("Payout administration exposes pending account verification actions", async () => {
+  const view = renderAdmin(<PayoutAdministrationPage />, (url) =>
+    url.includes("/admin/payouts/accounts")
+      ? Response.json({
+          organizationId: organization.id,
+          items: [
+            {
+              id: "account-1",
+              agentId: "agent-1",
+              agentCode: "AGENT-100",
+              method: "bank_account",
+              maskedAccountData: "****4567",
+              bankCode: "BNORPHMM",
+              rail: "instapay",
+              verificationStatus: 1,
+              isDefault: false,
+              createdAt: "2026-09-27T00:00:00Z",
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          totalCount: 1,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false,
+        })
+      : undefined,
+  );
+
+  assert.ok(await view.findByText("AGENT-100"));
+  assert.ok(view.getByRole("button", { name: "Verify" }));
+  assert.ok(view.getByRole("button", { name: "Reject" }));
+});
+
+test("Finance filters render with accessible identifiers", async () => {
+  const view = renderAdmin(<FinanceAdministrationPage />);
+
+  await waitFor(() => {
+    assert.ok(view.getByLabelText("Search wallets"));
+    assert.ok(view.getByLabelText("Wallet status"));
+    assert.ok(view.getByLabelText("Negative balances only"));
+    assert.ok(view.getByLabelText("Commission type"));
+    assert.ok(view.getByLabelText("Commission status"));
+    assert.ok(view.getByLabelText("Include reversals"));
+  });
 });
 
 test("Admin order permission failures render a forbidden state", async () => {

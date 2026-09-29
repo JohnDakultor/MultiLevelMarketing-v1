@@ -1,4 +1,5 @@
 using modular_mlm.Application.Network.Commands.AutoPlaceAgent;
+using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Domain.Network;
 using modular_mlm.Domain.Organizations;
 
@@ -8,6 +9,30 @@ using static Infrastructure.TestApp;
 
 public sealed class AutoPlaceAgentTests : TestBase
 {
+    [Test]
+    public async Task ShouldKeepFoundingAgentAsUnplacedRoot()
+    {
+        var organization = Organization.Create(
+            "Founding Root Test",
+            $"founding-root-{Guid.NewGuid():N}",
+            "USD"
+        );
+        var root = CreateActiveAgent(organization.Id, "ROOT");
+
+        await AddAsync(organization);
+        await AddAsync(root);
+        await RunAsAdministratorAsync(organization.Id);
+
+        var exception = await Should.ThrowAsync<ConflictException>(() =>
+            SendAsync(new AutoPlaceAgentCommand(organization.Id, root.Id))
+        );
+
+        exception.Message.ShouldContain("network root");
+        var storedAgent = await FindAsync<Agent>(root.Id);
+        storedAgent!.PlacementParentAgentId.ShouldBeNull();
+        storedAgent.PlacementSide.ShouldBeNull();
+    }
+
     [Test]
     public async Task ShouldPlaceAgentAndCreateClosureRow()
     {

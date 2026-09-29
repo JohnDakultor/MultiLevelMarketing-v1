@@ -121,7 +121,9 @@ export default function NewOrganizationPage() {
               For local development, set{" "}
               <code>NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG</code> to{" "}
               <code>{createdSlug}</code> in the portal environment files and
-              restart the Next.js apps.
+              restart the Next.js apps. Then open the Admin Portal root path
+              <code> /</code>; refreshing this platform creation URL will keep
+              you on the creation screen.
             </p>
             <Button
               onClick={() => {

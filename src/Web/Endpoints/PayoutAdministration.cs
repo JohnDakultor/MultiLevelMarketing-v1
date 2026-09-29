@@ -7,9 +7,12 @@ using modular_mlm.Application.Payouts.Commands.RejectPayoutAccount;
 using modular_mlm.Application.Payouts.Commands.VerifyPayoutAccount;
 using modular_mlm.Application.Payouts.Queries.GetPayoutDetails;
 using modular_mlm.Application.Payouts.Queries.GetPayoutDetails.Models;
+using modular_mlm.Application.Payouts.Queries.GetAdminPayoutAccounts;
+using modular_mlm.Application.Payouts.Queries.GetAdminPayoutAccounts.Models;
 using modular_mlm.Application.Payouts.Queries.GetPayoutHistory;
 using modular_mlm.Application.Payouts.Queries.GetPayoutHistory.Models;
 using modular_mlm.Domain.Constants;
+using modular_mlm.Domain.Payouts;
 using modular_mlm.Web.Infrastructure.Security;
 
 namespace modular_mlm.Web.Endpoints;
@@ -20,9 +23,12 @@ public sealed class PayoutAdministration : IEndpointGroup
 
     public static void Map(RouteGroupBuilder group)
     {
-        group.RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
+        group.RequireAuthorization(policy =>
+            policy.RequireRole(Roles.Administrator, Roles.PlatformAdministrator)
+        );
         group.RequireRateLimiting(RateLimitPolicyNames.AdministratorFinancialAction);
         group.MapGet(GetAdministratorPayoutHistory);
+        group.MapGet(GetAdministratorPayoutAccounts, "accounts");
         group.MapGet(GetAdministratorPayoutDetails, "{payoutRequestId:guid}");
         group.MapPost(Approve, "{payoutRequestId:guid}/approve");
         group.MapPost(Reject, "{payoutRequestId:guid}/reject");
@@ -31,6 +37,18 @@ public sealed class PayoutAdministration : IEndpointGroup
         group.MapPost(VerifyAccount, "accounts/{payoutAccountId:guid}/verify");
         group.MapPost(RejectAccount, "accounts/{payoutAccountId:guid}/reject");
     }
+
+    public static async Task<Ok<AdminPayoutAccountsPageDto>> GetAdministratorPayoutAccounts(
+        ISender sender,
+        Guid organizationId,
+        int page = 1,
+        int pageSize = 20,
+        PayoutVerificationStatus? status = null
+    ) => TypedResults.Ok(
+        await sender.Send(
+            new GetAdminPayoutAccountsQuery(organizationId, page, pageSize, status)
+        )
+    );
 
     public static async Task<Ok<IReadOnlyList<PayoutHistoryItemDto>>> GetAdministratorPayoutHistory(
         ISender sender,

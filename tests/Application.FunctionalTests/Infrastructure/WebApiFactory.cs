@@ -35,6 +35,7 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
             services.RemoveAll<IPayoutProvider>();
             services.RemoveAll<IPayoutAccountProtector>();
             services.RemoveAll<IObjectStorage>();
+            services.RemoveAll<IDnsTxtRecordResolver>();
             services.AddSingleton<TestAdministratorInvitationDelivery>();
             services.AddSingleton<IAdministratorInvitationDelivery>(provider =>
                 provider.GetRequiredService<TestAdministratorInvitationDelivery>()
@@ -54,6 +55,10 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
             services.AddSingleton<TestObjectStorage>();
             services.AddSingleton<IObjectStorage>(provider =>
                 provider.GetRequiredService<TestObjectStorage>()
+            );
+            services.AddSingleton<TestDnsTxtRecordResolver>();
+            services.AddSingleton<IDnsTxtRecordResolver>(provider =>
+                provider.GetRequiredService<TestDnsTxtRecordResolver>()
             );
             services
                 .RemoveAll<IUser>()

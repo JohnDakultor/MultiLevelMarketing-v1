@@ -1,10 +1,10 @@
 "use client";
 import { useApiQuery } from "@modular-mlm/api-client";
 import {
-  Card,
   DataTable,
   InputField,
   PageHeader,
+  StatsCard,
 } from "@modular-mlm/design-system";
 import { useState } from "react";
 import { adminApi } from "../api/adminApi";
@@ -37,6 +37,7 @@ export function AdminReportsPage() {
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Analytics"
         title="Reports"
         description="Date-ranged totals and breakdowns are returned by the reporting API. No synthetic trend line is shown."
       />
@@ -59,27 +60,24 @@ export function AdminReportsPage() {
         />
       </div>
       <div className="metric-grid">
-        <Metric
+        <StatsCard
           label="Gross sales"
           value={money(data?.grossSales ?? 0, data?.currency ?? scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Net sales"
           value={money(data?.netSales ?? 0, data?.currency ?? scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Refunded"
           value={money(
             data?.refundedAmount ?? 0,
             data?.currency ?? scope.currency,
           )}
         />
-        <Metric label="Orders" value={String(data?.orderCount ?? 0)} />
-        <Metric
-          label="Business volume"
-          value={String(data?.businessVolume ?? 0)}
-        />
-        <Metric
+        <StatsCard label="Orders" value={data?.orderCount ?? 0} />
+        <StatsCard label="Business volume" value={data?.businessVolume ?? 0} />
+        <StatsCard
           label="Commission expense"
           value={money(
             data?.commissionExpense ?? 0,
@@ -88,10 +86,11 @@ export function AdminReportsPage() {
         />
       </div>
       <div className="detail-grid">
-        <Card>
+        <section className="ds-card content-stack">
           <h2>Sales by product</h2>
           <DataTable
             caption="Sales by product"
+            emptyMessage="No product sales were recorded in this period."
             rows={data?.salesByProduct ?? []}
             rowKey={(row) => row.id}
             columns={[
@@ -106,11 +105,12 @@ export function AdminReportsPage() {
               },
             ]}
           />
-        </Card>
-        <Card>
+        </section>
+        <section className="ds-card content-stack">
           <h2>Sales by Agent</h2>
           <DataTable
             caption="Sales by Agent"
+            emptyMessage="No agent-attributed sales were recorded in this period."
             rows={data?.salesByAgent ?? []}
             rowKey={(row) => row.id}
             columns={[
@@ -125,16 +125,8 @@ export function AdminReportsPage() {
               },
             ]}
           />
-        </Card>
+        </section>
       </div>
     </div>
-  );
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <span>{label}</span>
-      <strong className="metric-value">{value}</strong>
-    </Card>
   );
 }

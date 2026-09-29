@@ -54,10 +54,13 @@ export function useApiQuery<T>(
   );
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => {
-    setLoading(true);
+    // Keep already-rendered content mounted during background refreshes. This
+    // avoids replacing an entire administration screen with a spinner after a
+    // mutation while still exposing a loading state for the first request.
+    if (data === null) setLoading(true);
     setError(null);
     setRevision((value) => value + 1);
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,7 +68,10 @@ export function useApiQuery<T>(
     const controller = new AbortController();
     void load(client, controller.signal)
       .then((result) => {
-        if (!controller.signal.aborted) setData(result);
+        if (!controller.signal.aborted) {
+          setData(result);
+          setError(null);
+        }
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted)
@@ -82,5 +88,10 @@ export function useApiQuery<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, enabled, revision, ...dependencies]);
 
-  return { data, error, isLoading: enabled && isLoading, reload };
+  return {
+    data,
+    error,
+    isLoading: enabled && (isLoading || (data === null && error === null)),
+    reload,
+  };
 }

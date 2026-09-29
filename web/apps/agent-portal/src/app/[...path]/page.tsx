@@ -23,10 +23,10 @@ export default async function AgentRoute({
   if (path.length !== 1) notFound();
   if (path[0] === "network") return <NetworkPage />;
   if (path[0] === "sales") return <SalesPage />;
-  if (["earnings", "wallet", "payouts"].includes(path[0]!))
+  if (["earnings", "wallet", "transactions", "payouts"].includes(path[0]!))
     return (
       <AgentFinancePages
-        route={path[0]! as "earnings" | "wallet" | "payouts"}
+        route={path[0]! as "earnings" | "wallet" | "transactions" | "payouts"}
       />
     );
   if (path[0] === "referrals") return <ReferralToolsPage />;

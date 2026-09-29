@@ -1,6 +1,6 @@
 import type {
   CategoryDto,
-  ProductDto,
+  ProductPage,
   PublicOrganizationConfigDto,
 } from "@modular-mlm/contracts";
 import { headers } from "next/headers";
@@ -10,17 +10,21 @@ const backendOrigin = (
   process.env.BACKEND_API_BASE_URL ?? "http://localhost:5154"
 ).replace(/\/$/, "");
 
-export async function ServerCatalogPage() {
+export async function ServerCatalogPage({
+  mode = "catalog",
+}: {
+  mode?: "home" | "catalog";
+} = {}) {
   const requestHeaders = await headers();
   const hostName =
     requestHeaders.get("x-forwarded-host") ??
     requestHeaders.get("host") ??
     "localhost";
   const organization = await resolveOrganization(hostName);
-  if (!organization) return <CatalogPage />;
+  if (!organization) return <CatalogPage mode={mode} />;
 
   const [products, categories] = await Promise.all([
-    getPublic<ProductDto[]>(
+    getPublic<ProductPage>(
       `/api/organizations/${organization.id}/products?page=1&pageSize=24`,
     ),
     getPublic<CategoryDto[]>(
@@ -29,7 +33,8 @@ export async function ServerCatalogPage() {
   ]);
   return (
     <CatalogPage
-      initialProducts={products ?? []}
+      mode={mode}
+      initialProducts={products ?? undefined}
       initialCategories={categories ?? []}
     />
   );

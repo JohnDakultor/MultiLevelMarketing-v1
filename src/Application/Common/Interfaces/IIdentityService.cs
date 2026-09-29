@@ -16,6 +16,12 @@ public interface IIdentityService
         CancellationToken cancellationToken
     );
 
+    Task<Result> ValidateAgentAccessAssignmentAsync(
+        string userId,
+        Guid organizationId,
+        CancellationToken cancellationToken
+    );
+
     Task<bool> AuthorizeAsync(string userId, string policyName);
 
     Task<(Result Result, string UserId)> CreateUserAsync(string userName, string password);

@@ -26,6 +26,10 @@ public static class IdentitySecurityServiceCollectionExtensions
                 options => !environment.IsProduction() || options.RequireAdministratorMfa,
                 "Administrator MFA must be required in Production."
             )
+            .Validate(
+                options => environment.IsDevelopment() || IdentitySecurityOptions.IsValidForDeployment(options),
+                "Password reset base URL must be a public HTTPS URL outside Development."
+            )
             .ValidateOnStart();
         services.Configure<IdentityOptions>(options =>
             options.SignIn.RequireConfirmedEmail = configured.RequireConfirmedEmail

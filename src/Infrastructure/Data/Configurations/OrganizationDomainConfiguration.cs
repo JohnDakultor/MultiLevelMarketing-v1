@@ -12,9 +12,16 @@ public sealed class OrganizationDomainConfiguration : IEntityTypeConfiguration<O
         builder.HasKey(domain => domain.Id);
         builder.Property(domain => domain.HostName).HasMaxLength(253).IsRequired();
         builder.Property(domain => domain.CreatedAt).IsRequired();
+        builder.Property(domain => domain.VerificationToken).HasMaxLength(64).IsRequired();
+        builder.Ignore(domain => domain.VerificationRecordName);
         builder.Ignore(domain => domain.IsVerified);
 
-        builder.HasIndex(domain => domain.HostName).IsUnique();
+        builder
+            .HasIndex(domain => domain.HostName)
+            .IsUnique()
+            .HasDatabaseName(
+                modular_mlm.Application.Common.Persistence.DatabaseConstraintNames.OrganizationDomainHostName
+            );
         builder
             .HasIndex(domain => domain.OrganizationId)
             .IsUnique()

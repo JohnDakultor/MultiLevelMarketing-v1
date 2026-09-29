@@ -41,6 +41,44 @@ test("inventory adjustment carries the caller idempotency key and expected versi
   );
 });
 
+test("product image operations use multipart upload and the tenant-scoped product route", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input, init) => {
+      requests.push({ url: String(input), init });
+      if (String(input).endsWith("/api/security/antiforgery-token"))
+        return Response.json({ requestToken: "token", headerName: "X-CSRF" });
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      return Response.json({
+        objectKey: "organizations/org-1/products/product-1/images/image.png",
+        url: "https://assets.test/image.png",
+        contentType: "image/png",
+        contentLength: 3,
+      });
+    },
+  });
+  const image = new File([new Uint8Array([1, 2, 3])], "product.png", {
+    type: "image/png",
+  });
+
+  await adminApi.uploadProductImage(api, "org-1", "product-1", image);
+  const upload = requests.at(-1)!;
+  assert.equal(
+    upload.url,
+    "/api/organizations/org-1/admin/products/product-1/image",
+  );
+  assert.equal(upload.init?.method, "POST");
+  assert.ok(upload.init?.body instanceof FormData);
+  assert.equal(new Headers(upload.init?.headers).has("Content-Type"), false);
+
+  await adminApi.removeProductImage(api, "org-1", "product-1");
+  assert.equal(
+    requests.at(-1)?.url,
+    "/api/organizations/org-1/admin/products/product-1/image",
+  );
+  assert.equal(requests.at(-1)?.init?.method, "DELETE");
+});
+
 test("Agent review operations use the tenant-scoped lifecycle endpoint", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const api = new ApiClient({
@@ -192,10 +230,20 @@ test("new administration workflows use tenant-scoped backend contracts", async (
     requests.at(-1)?.url,
     "/api/organizations/org-1/admin/wallets?page=1&pageSize=20&search=AGENT&negativeOnly=false",
   );
+  await adminApi.adminWallets(api, "org-1", 1, "");
+  assert.equal(
+    requests.at(-1)?.url,
+    "/api/organizations/org-1/admin/wallets?page=1&pageSize=20&negativeOnly=false",
+  );
   await adminApi.commissionLedger(api, "org-1", 2);
   assert.equal(
     requests.at(-1)?.url,
     "/api/organizations/org-1/admin/commissions?page=2&pageSize=20&includeReversals=true",
+  );
+  await adminApi.payoutAccounts(api, "org-1", 1, undefined, "Pending");
+  assert.equal(
+    requests.at(-1)?.url,
+    "/api/organizations/org-1/admin/payouts/accounts?page=1&pageSize=20&status=Pending",
   );
   await adminApi.updateReferralSettings(api, "org-1", {
     attributionWindowDays: 30,
@@ -205,5 +253,16 @@ test("new administration workflows use tenant-scoped backend contracts", async (
   assert.equal(
     requests.at(-1)?.url,
     "/api/organizations/org-1/referral-settings",
+  );
+
+  await adminApi.customers(api, "org-1", 2, "maria", "Suspended");
+  assert.equal(
+    requests.at(-1)?.url,
+    "/api/organizations/org-1/admin/customers?page=2&pageSize=20&search=maria&status=Suspended",
+  );
+  await adminApi.changeCustomerStatus(api, "org-1", "customer-1", 1, "Review");
+  assert.equal(
+    requests.at(-1)?.url,
+    "/api/organizations/org-1/admin/customers/customer-1/status",
   );
 });

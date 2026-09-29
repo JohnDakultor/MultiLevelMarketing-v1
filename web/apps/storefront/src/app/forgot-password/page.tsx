@@ -9,6 +9,7 @@ import {
   PageHeader,
 } from "@modular-mlm/design-system";
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 
 export default function ForgotPasswordPage() {
   const api = useApiClient();
@@ -22,9 +23,9 @@ export default function ForgotPasswordPage() {
           If an account exists for that address, password-reset instructions
           have been requested.
         </Alert>
-        <a className="ds-button ds-button--primary" href="/sign-in">
+        <Link className="ds-button ds-button--primary" href="/sign-in">
           Return to sign in
-        </a>
+        </Link>
       </div>
     );
 
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
       >
         <PageHeader
           title="Reset your password"
-          description="Enter the email address used for your marketplace account."
+          description="Enter the email address you use to sign in."
         />
         <FormErrorSummary
           errors={feedback.fieldErrors}
@@ -72,7 +73,7 @@ export default function ForgotPasswordPage() {
         </Button>
       </form>
       <p>
-        <a href="/sign-in">Return to sign in</a>
+        <Link href="/sign-in">Return to sign in</Link>
       </p>
     </div>
   );

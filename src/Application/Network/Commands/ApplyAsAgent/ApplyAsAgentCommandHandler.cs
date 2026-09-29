@@ -1,4 +1,5 @@
 using modular_mlm.Application.Common.Interfaces;
+using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Domain.Network;
 using modular_mlm.Domain.Organizations;
 
@@ -13,6 +14,14 @@ public sealed class ApplyAsAgentCommandHandler(
     public async Task<Guid> Handle(ApplyAsAgentCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.Id ?? throw new UnauthorizedAccessException();
+        if (
+            currentUser.OrganizationId is { } assignedOrganizationId
+            && assignedOrganizationId != request.OrganizationId
+        )
+            throw new ConflictException(
+                "This identity account already belongs to another Organization. Use an account created for this Organization."
+            );
+
         var organization = await db.Organizations.SingleOrDefaultAsync(
             candidate => candidate.Id == request.OrganizationId,
             cancellationToken

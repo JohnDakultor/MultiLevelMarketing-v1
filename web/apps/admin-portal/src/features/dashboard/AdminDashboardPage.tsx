@@ -1,6 +1,14 @@
 "use client";
+
 import { useApiQuery } from "@modular-mlm/api-client";
-import { Alert, Card, PageHeader } from "@modular-mlm/design-system";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+  StatsCard,
+} from "@modular-mlm/design-system";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, money, useAdminScope } from "../shared/AdminState";
 
@@ -14,40 +22,48 @@ export function AdminDashboardPage() {
   if (dashboard.isLoading) return <Loading />;
   if (dashboard.error)
     return <Failure error={dashboard.error} retry={dashboard.reload} />;
+
   const data = dashboard.data;
+  const currency = data?.currency ?? scope.currency;
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Overview"
         title="Operations dashboard"
-        description="Actionable totals are backend aggregates observed at the displayed time."
+        description={`Live operational totals from the reporting API${data?.observedAt ? ` · Updated ${new Date(data.observedAt).toLocaleString()}` : ""}.`}
       />
       <div className="metric-grid">
-        <Metric
+        <StatsCard
           label="Sales today"
-          value={money(data?.salesToday ?? 0, data?.currency ?? scope.currency)}
+          value={money(data?.salesToday ?? 0, currency)}
+          description="Gross sales since midnight"
         />
-        <Metric
+        <StatsCard
           label="Sales · 30 days"
-          value={money(
-            data?.salesLast30Days ?? 0,
-            data?.currency ?? scope.currency,
-          )}
+          value={money(data?.salesLast30Days ?? 0, currency)}
+          description="Rolling thirty-day total"
         />
-        <Metric label="Orders today" value={String(data?.ordersToday ?? 0)} />
-        <Metric label="Active Agents" value={String(data?.activeAgents ?? 0)} />
-        <Metric
+        <StatsCard
+          label="Orders today"
+          value={String(data?.ordersToday ?? 0)}
+          description="Orders created today"
+        />
+        <StatsCard
+          label="Active agents"
+          value={String(data?.activeAgents ?? 0)}
+          description="Currently active network members"
+        />
+        <StatsCard
           label="Commission liability"
-          value={money(
-            data?.commissionLiability ?? 0,
-            data?.currency ?? scope.currency,
-          )}
+          value={money(data?.commissionLiability ?? 0, currency)}
+          tone={(data?.commissionLiability ?? 0) > 0 ? "warning" : "neutral"}
+          description="Outstanding commission obligation"
         />
-        <Metric
+        <StatsCard
           label="Wallet liability"
-          value={money(
-            data?.walletLiability ?? 0,
-            data?.currency ?? scope.currency,
-          )}
+          value={money(data?.walletLiability ?? 0, currency)}
+          tone={(data?.walletLiability ?? 0) > 0 ? "warning" : "neutral"}
+          description="Net agent wallet obligation"
         />
       </div>
       {data?.alerts.map((alert) => (
@@ -66,25 +82,26 @@ export function AdminDashboardPage() {
         </Alert>
       ))}
       <Card>
-        <h2>Tasks requiring attention</h2>
+        <SectionHeader
+          title="Tasks requiring attention"
+          description="Backend-generated work queues that need an administrator."
+        />
         {data?.tasks.length ? (
-          data.tasks.map((task) => (
-            <p key={task.code}>
-              <strong>{task.count}</strong> {task.label}
-            </p>
-          ))
+          <div className="task-list">
+            {data.tasks.map((task) => (
+              <div className="task-list__item" key={task.code}>
+                <span>{task.label}</span>
+                <strong>{task.count}</strong>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p>No outstanding dashboard tasks.</p>
+          <EmptyState
+            title="You are all caught up"
+            description="There are no outstanding operational tasks."
+          />
         )}
       </Card>
     </div>
-  );
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <span>{label}</span>
-      <strong className="metric-value">{value}</strong>
-    </Card>
   );
 }

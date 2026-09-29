@@ -49,3 +49,71 @@ export const PayoutStatus = {
   failed: 6,
   cancelled: 7,
 } as const;
+
+export const CommissionPlanStatus = {
+  draft: 0,
+  active: 1,
+  retired: 2,
+} as const;
+
+export const PayoutVerificationStatus = {
+  unverified: 0,
+  pending: 1,
+  verified: 2,
+  rejected: 3,
+} as const;
+
+export const AdministratorInvitationStatus = {
+  pending: 0,
+  accepted: 1,
+  revoked: 2,
+  expired: 3,
+} as const;
+
+export const WalletStatus = { active: 0, held: 1, closed: 2 } as const;
+
+export const WalletEntryType = {
+  pendingCredit: 0,
+  availableCredit: 1,
+  hold: 2,
+  debit: 3,
+  payout: 4,
+  adjustment: 5,
+  reversal: 6,
+} as const;
+
+export const CommissionType = {
+  directSale: 0,
+  binaryPairing: 1,
+  bonus: 2,
+  adjustment: 3,
+  reversal: 4,
+} as const;
+
+export const CommissionStatus = {
+  pending: 0,
+  available: 1,
+  paid: 2,
+  reversed: 3,
+  held: 4,
+} as const;
+
+export const BinaryVolumeEntryType = {
+  credit: 0,
+  reversal: 1,
+  adjustment: 2,
+  pairConsumption: 3,
+  expiry: 4,
+} as const;
+
+export const OrderItemRefundStatus = {
+  pending: 0,
+  reversed: 1,
+  reversalFailed: 2,
+} as const;
+
+export const PaymentRefundStatus = {
+  pending: 0,
+  succeeded: 1,
+  failed: 2,
+} as const;

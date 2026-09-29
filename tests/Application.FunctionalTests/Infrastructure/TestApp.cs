@@ -79,6 +79,21 @@ public static class TestApp
         return userId;
     }
 
+    public static async Task SetCurrentOrganizationAsync(Guid organizationId)
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+            throw new InvalidOperationException("A current test identity is required.");
+        using var scope = FunctionalTestSetup.ScopeFactory.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByIdAsync(_userId)
+            ?? throw new InvalidOperationException("The current test identity no longer exists.");
+        user.OrganizationId = organizationId;
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException("Could not change the test organization.");
+        _organizationId = organizationId;
+    }
+
     public static async Task<string> RunAsUserAsync(
         string userName,
         string password,
@@ -137,6 +152,7 @@ public static class TestApp
         scope.ServiceProvider.GetRequiredService<TestPaymentGateway>().Reset();
         scope.ServiceProvider.GetRequiredService<TestPayoutProvider>().Reset();
         scope.ServiceProvider.GetRequiredService<TestObjectStorage>().Reset();
+        scope.ServiceProvider.GetRequiredService<TestDnsTxtRecordResolver>().Reset();
     }
 
     public static TService GetRequiredService<TService>()

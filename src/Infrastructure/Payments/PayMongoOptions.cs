@@ -13,4 +13,10 @@ public sealed class PayMongoOptions
     public string WalletBic { get; init; } = "PAEYPHM2XXX";
     public Uri PayoutCallbackUrl { get; init; } =
         new("https://localhost:7179/api/webhooks/paymongo/transfers");
+
+    public static bool HasValidCallback(PayMongoOptions options, bool allowLoopback) =>
+        options.PayoutCallbackUrl.IsAbsoluteUri
+        && options.PayoutCallbackUrl.Scheme == Uri.UriSchemeHttps
+        && string.IsNullOrEmpty(options.PayoutCallbackUrl.UserInfo)
+        && (allowLoopback || !options.PayoutCallbackUrl.IsLoopback);
 }

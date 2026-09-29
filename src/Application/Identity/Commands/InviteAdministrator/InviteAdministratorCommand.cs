@@ -3,7 +3,7 @@ using modular_mlm.Domain.Constants;
 
 namespace modular_mlm.Application.Identity.Commands.InviteAdministrator;
 
-[Authorize(Roles = Roles.Administrator)]
+[Authorize(Roles = Roles.Administrator + "," + Roles.PlatformAdministrator)]
 public sealed record InviteAdministratorCommand(Guid OrganizationId, string Email)
     : IRequest<Guid>,
         IOrganizationAdminRequest;

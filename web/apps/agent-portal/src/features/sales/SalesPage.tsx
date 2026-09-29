@@ -1,33 +1,66 @@
 "use client";
 
 import { useApiQuery } from "@modular-mlm/api-client";
+import { OrderStatus } from "@modular-mlm/contracts";
 import {
   Button,
-  Card,
   DataTable,
   Dialog,
   EmptyState,
   PageHeader,
+  InputField,
+  SelectField,
+  StatsCard,
 } from "@modular-mlm/design-system";
 import { useState } from "react";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading, date, money } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import {
+  CommissionStatusBadge,
+  OrderStatusBadge,
+  commissionTypeLabel,
+  fulfillmentStatusLabel,
+  paymentStatusLabel,
+} from "../shared/status";
 
 export function SalesPage() {
   const scope = useAgentScope();
   const [view, setView] = useState<"orders" | "products">("orders");
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const sales = useApiQuery(
-    (api, signal) => agentApi.sales(api, scope.organizationId, page, signal),
-    [scope.organizationId, page],
+    (api, signal) =>
+      agentApi.sales(
+        api,
+        scope.organizationId,
+        page,
+        {
+          status: status === "" ? undefined : Number(status),
+          from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+          to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
+        },
+        signal,
+      ),
+    [scope.organizationId, page, status, from, to],
     scope.isReady && view === "orders",
   );
   const products = useApiQuery(
     (api, signal) =>
-      agentApi.productSales(api, scope.organizationId, page, signal),
-    [scope.organizationId, page],
+      agentApi.productSales(
+        api,
+        scope.organizationId,
+        page,
+        {
+          from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+          to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
+        },
+        signal,
+      ),
+    [scope.organizationId, page, from, to],
     scope.isReady && view === "products",
   );
   const details = useApiQuery(
@@ -73,6 +106,60 @@ export function SalesPage() {
           Products
         </Button>
       </div>
+      <section className="filter-panel" aria-label="Sales filters">
+        {view === "orders" && (
+          <SelectField
+            id="sales-status"
+            label="Order status"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All statuses</option>
+            {Object.values(OrderStatus).map((value) => (
+              <option key={value} value={value}>
+                {orderStatusLabel(value)}
+              </option>
+            ))}
+          </SelectField>
+        )}
+        <InputField
+          id="sales-from"
+          label="From"
+          type="date"
+          value={from}
+          onChange={(event) => {
+            setFrom(event.target.value);
+            setPage(1);
+          }}
+        />
+        <InputField
+          id="sales-to"
+          label="To"
+          type="date"
+          min={from || undefined}
+          value={to}
+          onChange={(event) => {
+            setTo(event.target.value);
+            setPage(1);
+          }}
+        />
+        {(status || from || to) && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setStatus("");
+              setFrom("");
+              setTo("");
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </section>
 
       {view === "orders" ? (
         !sales.data?.items.length ? (
@@ -96,6 +183,11 @@ export function SalesPage() {
                 key: "created",
                 header: "Created",
                 cell: (row) => date(row.createdAt),
+              },
+              {
+                key: "status",
+                header: "Status",
+                cell: (row) => <OrderStatusBadge value={row.status} />,
               },
               {
                 key: "products",
@@ -200,21 +292,22 @@ export function SalesPage() {
         ) : details.data ? (
           <div className="content-stack">
             <div className="metric-grid">
-              <Card>
-                <span>Customer</span>
-                <strong>{details.data.maskedCustomerName}</strong>
-              </Card>
-              <Card>
-                <span>Total</span>
-                <strong>
-                  {money(details.data.grandTotal, details.data.currency)}
-                </strong>
-              </Card>
-              <Card>
-                <span>Created</span>
-                <strong>{date(details.data.createdAt)}</strong>
-              </Card>
+              <StatsCard
+                label="Customer"
+                value={details.data.maskedCustomerName}
+              />
+              <StatsCard
+                label="Total"
+                value={money(details.data.grandTotal, details.data.currency)}
+              />
+              <StatsCard label="Created" value={date(details.data.createdAt)} />
             </div>
+            <p className="status-line">
+              <OrderStatusBadge value={details.data.status} />
+              <span>
+                Payment: {paymentStatusLabel(details.data.paymentStatus)}
+              </span>
+            </p>
             <DataTable
               caption="Attributed order items"
               rows={details.data.items}
@@ -235,7 +328,7 @@ export function SalesPage() {
                 {
                   key: "fulfillment",
                   header: "Fulfillment",
-                  cell: (row) => row.fulfillmentStatus,
+                  cell: (row) => fulfillmentStatusLabel(row.fulfillmentStatus),
                 },
               ]}
             />
@@ -250,11 +343,15 @@ export function SalesPage() {
                 rows={details.data.commissions}
                 rowKey={(row) => row.commissionId}
                 columns={[
-                  { key: "type", header: "Type", cell: (row) => row.type },
+                  {
+                    key: "type",
+                    header: "Type",
+                    cell: (row) => commissionTypeLabel(row.type),
+                  },
                   {
                     key: "status",
                     header: "Status",
-                    cell: (row) => row.status,
+                    cell: (row) => <CommissionStatusBadge value={row.status} />,
                   },
                   {
                     key: "amount",
@@ -270,4 +367,18 @@ export function SalesPage() {
       </Dialog>
     </div>
   );
+}
+
+function orderStatusLabel(value: number) {
+  const labels = [
+    "Pending payment",
+    "Paid",
+    "Processing",
+    "Shipped",
+    "Delivered",
+    "Cancelled",
+    "Partially refunded",
+    "Refunded",
+  ];
+  return labels[value] ?? `Unknown (${value})`;
 }

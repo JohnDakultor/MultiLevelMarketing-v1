@@ -25,6 +25,7 @@ env:
   NODE_VERSION: 22.13.x
   ASPIRE_CLI_VERSION: 13.5.4
   DEPLOYMENT_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'uat' }}
+  ASPNETCORE_ENVIRONMENT: ${{ (github.event_name == 'workflow_dispatch' && inputs.environment == 'production') && 'Production' || 'Staging' }}
 
 jobs:
   validate:
@@ -59,6 +60,9 @@ jobs:
       Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
       ORGANIZATION_SLUG: ${{ vars.ORGANIZATION_SLUG || 'default' }}
       SEED_ADMINISTRATOR_EMAIL: ${{ vars.SEED_ADMINISTRATOR_EMAIL }}
+      PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+      PUBLIC_ADMIN_BASE_URL: ${{ vars.PUBLIC_ADMIN_BASE_URL }}
+      PUBLIC_STOREFRONT_BASE_URL: ${{ vars.PUBLIC_STOREFRONT_BASE_URL }}
       Parameters__seed-administrator-password: ${{ secrets.SEED_ADMINISTRATOR_PASSWORD }}
     steps:
       - uses: actions/checkout@v7
@@ -190,3 +194,48 @@ jobs:
 
           echo "Migration did not complete within 10 minutes." >&2
           exit 1
+
+  verify-uat:
+    needs: migrate
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.environment == 'uat') }}
+    runs-on: ubuntu-latest
+    environment: uat
+    env:
+      E2E_REAL_STACK: "1"
+      E2E_STOREFRONT_URL: ${{ vars.PUBLIC_STOREFRONT_BASE_URL }}
+      E2E_AGENT_URL: ${{ vars.PUBLIC_AGENT_BASE_URL }}
+      E2E_ADMIN_URL: ${{ vars.PUBLIC_ADMIN_BASE_URL }}
+      E2E_CUSTOMER_EMAIL: ${{ vars.E2E_CUSTOMER_EMAIL }}
+      E2E_CUSTOMER_PASSWORD: ${{ secrets.E2E_CUSTOMER_PASSWORD }}
+      E2E_AGENT_EMAIL: ${{ vars.E2E_AGENT_EMAIL }}
+      E2E_AGENT_PASSWORD: ${{ secrets.E2E_AGENT_PASSWORD }}
+      E2E_ADMIN_EMAIL: ${{ vars.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_FOREIGN_ORGANIZATION_ID: ${{ vars.E2E_FOREIGN_ORGANIZATION_ID }}
+      E2E_REFERRAL_CODE: ${{ vars.E2E_REFERRAL_CODE }}
+      E2E_PRODUCT_SLUG: ${{ vars.E2E_PRODUCT_SLUG }}
+      E2E_PAID_ORDER_ID: ${{ vars.E2E_PAID_ORDER_ID }}
+      E2E_CANCELLABLE_ORDER_ID: ${{ vars.E2E_CANCELLABLE_ORDER_ID }}
+      E2E_REFUNDABLE_ORDER_ID: ${{ vars.E2E_REFUNDABLE_ORDER_ID }}
+      E2E_PAYOUT_AMOUNT: ${{ vars.E2E_PAYOUT_AMOUNT }}
+      E2E_PENDING_AGENT_CODE: ${{ vars.E2E_PENDING_AGENT_CODE }}
+      E2E_ADMIN_REFUNDABLE_ORDER_NUMBER: ${{ vars.E2E_ADMIN_REFUNDABLE_ORDER_NUMBER }}
+      E2E_ADMIN_PAYMENT_REFUND_AMOUNT: ${{ vars.E2E_ADMIN_PAYMENT_REFUND_AMOUNT }}
+      E2E_UNPLACED_AGENT_CODE: ${{ vars.E2E_UNPLACED_AGENT_CODE }}
+      E2E_PLACEMENT_PARENT_AGENT_CODE: ${{ vars.E2E_PLACEMENT_PARENT_AGENT_CODE }}
+      E2E_PENDING_PAYOUT_ACCOUNT_AGENT_CODE: ${{ vars.E2E_PENDING_PAYOUT_ACCOUNT_AGENT_CODE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: Verify deployed UAT workflows
+        run: npm run test:e2e:real
+        working-directory: web

@@ -7,6 +7,12 @@ public sealed class AdministratorInvitationOptions
     public Uri AcceptanceBaseUrl { get; init; } =
         new("https://localhost:4200/admin/invitations/accept");
     public int LifetimeHours { get; init; } = 72;
+
+    public static bool IsValid(AdministratorInvitationOptions options) =>
+        options.LifetimeHours > 0 && ExternalApplicationUri.IsHttp(options.AcceptanceBaseUrl);
+
+    public static bool IsValidForDeployment(AdministratorInvitationOptions options) =>
+        IsValid(options) && ExternalApplicationUri.IsPublicHttps(options.AcceptanceBaseUrl);
 }
 
 public sealed class AdministratorInvitationPolicy(

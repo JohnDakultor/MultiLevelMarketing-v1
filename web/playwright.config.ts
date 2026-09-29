@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const realStack = process.env.E2E_REAL_STACK === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -11,7 +13,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     ...devices["Desktop Chrome"],
-    channel: "msedge",
+    ...(process.env.CI ? {} : { channel: "msedge" }),
   },
   projects: [
     {
@@ -29,30 +31,32 @@ export default defineConfig({
       use: { baseURL: process.env.E2E_ADMIN_URL ?? "http://localhost:3102" },
     },
   ],
-  webServer: [
-    {
-      command:
-        "node apps/storefront/.next/standalone/apps/storefront/server.js",
-      port: 3100,
-      env: { ...process.env, PORT: "3100", HOSTNAME: "127.0.0.1" },
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-    {
-      command:
-        "node apps/agent-portal/.next/standalone/apps/agent-portal/server.js",
-      port: 3101,
-      env: { ...process.env, PORT: "3101", HOSTNAME: "127.0.0.1" },
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-    {
-      command:
-        "node apps/admin-portal/.next/standalone/apps/admin-portal/server.js",
-      port: 3102,
-      env: { ...process.env, PORT: "3102", HOSTNAME: "127.0.0.1" },
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-  ],
+  webServer: realStack
+    ? undefined
+    : [
+        {
+          command:
+            "node apps/storefront/.next/standalone/apps/storefront/server.js",
+          port: 3100,
+          env: { ...process.env, PORT: "3100", HOSTNAME: "127.0.0.1" },
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+        {
+          command:
+            "node apps/agent-portal/.next/standalone/apps/agent-portal/server.js",
+          port: 3101,
+          env: { ...process.env, PORT: "3101", HOSTNAME: "127.0.0.1" },
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+        {
+          command:
+            "node apps/admin-portal/.next/standalone/apps/admin-portal/server.js",
+          port: 3102,
+          env: { ...process.env, PORT: "3102", HOSTNAME: "127.0.0.1" },
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+      ],
 });

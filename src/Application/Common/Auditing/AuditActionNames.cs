@@ -18,6 +18,8 @@ public static class AuditActionNames
     public const string ProductVariantUpdated = "PRODUCT_VARIANT_UPDATED";
     public const string ProductVariantArchived = "PRODUCT_VARIANT_ARCHIVED";
     public const string ProductUpdated = "PRODUCT_UPDATED";
+    public const string ProductImageUploaded = "PRODUCT_IMAGE_UPLOADED";
+    public const string ProductImageRemoved = "PRODUCT_IMAGE_REMOVED";
     public const string ProductPublished = "PRODUCT_PUBLISHED";
     public const string ProductArchived = "PRODUCT_ARCHIVED";
     public const string CommissionProfileCreated = "COMMISSION_PROFILE_CREATED";
@@ -29,6 +31,7 @@ public static class AuditActionNames
     public const string BrandingPublished = "BRANDING_PUBLISHED";
     public const string BrandingAssetUploaded = "BRANDING_ASSET_UPLOADED";
     public const string OrganizationDomainConfigured = "ORGANIZATION_DOMAIN_CONFIGURED";
+    public const string OrganizationDomainVerified = "ORGANIZATION_DOMAIN_VERIFIED";
     public const string OrganizationDomainRemoved = "ORGANIZATION_DOMAIN_REMOVED";
     public const string BrandingUpdated = "BRANDING_UPDATED";
     public const string FeaturesUpdated = "FEATURES_UPDATED";
@@ -73,4 +76,5 @@ public static class AuditActionNames
     public const string CategoryRenamed= "CATEGORY_Renamed";
     public const string CategoryArchived = "CATEGORY_ARCHIVED";
     public const string CategoryActivated = "CATEGORY_ACTIVATED";
+    public const string CustomerStatusChanged = "CUSTOMER_STATUS_CHANGED";
 }

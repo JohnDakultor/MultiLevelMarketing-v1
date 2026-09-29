@@ -13,16 +13,19 @@ import {
   FormErrorSummary,
   InputField,
   PageHeader,
+  StatusBadge,
   useConfirmation,
 } from "@modular-mlm/design-system";
 import { useState, type FormEvent } from "react";
 import { adminApi } from "../api/adminApi";
 import { Failure, Loading, date, useAdminScope } from "../shared/AdminState";
+import { administratorInvitationStatus } from "../shared/status";
 
 export function AdministratorsPage() {
   const api = useApiClient();
   const { confirm, prompt } = useConfirmation();
   const inviteFeedback = useFormSubmission();
+  const actionFeedback = useFormSubmission();
   const scope = useAdminScope();
   const admins = useApiQuery(
     (client, signal) =>
@@ -37,16 +40,25 @@ export function AdministratorsPage() {
     scope.isReady,
   );
   const [message, setMessage] = useState("");
+  const [actingId, setActingId] = useState<string | null>(null);
   if (admins.isLoading || invitations.isLoading) return <Loading />;
   if (admins.error)
     return <Failure error={admins.error} retry={admins.reload} />;
+  if (invitations.error)
+    return <Failure error={invitations.error} retry={invitations.reload} />;
   return (
     <div className="content-stack">
       <PageHeader
+        eyebrow="Access control"
         title="Administrators"
         description="Invite administrators and revoke access within this organization."
       />
       {message && <Alert title={message} tone="info" />}
+      <FormErrorSummary
+        errors={actionFeedback.fieldErrors}
+        generalErrors={actionFeedback.formErrors}
+        id={actionFeedback.errorSummaryId}
+      />
       <Card>
         <h2>Invite administrator</h2>
         <form
@@ -120,6 +132,9 @@ export function AdministratorsPage() {
             cell: (row) => (
               <Button
                 variant="danger"
+                size="sm"
+                isLoading={actingId === row.id}
+                disabled={actionFeedback.isSubmitting}
                 onClick={async () => {
                   const value = await prompt({
                     title: "Reason for revocation",
@@ -137,14 +152,22 @@ export function AdministratorsPage() {
                     }))
                   )
                     return;
-                  await adminApi.revokeAdministrator(
-                    api,
-                    scope.organizationId,
-                    row.id,
-                    value,
+                  setActingId(row.id);
+                  const revoked = await actionFeedback.submit(
+                    () =>
+                      adminApi.revokeAdministrator(
+                        api,
+                        scope.organizationId,
+                        row.id,
+                        value,
+                      ),
+                    "Administrator role revoked.",
                   );
-                  setMessage("Administrator role revoked.");
-                  admins.reload();
+                  setActingId(null);
+                  if (revoked) {
+                    setMessage("Administrator role revoked.");
+                    admins.reload();
+                  }
                 }}
               >
                 Revoke role
@@ -176,35 +199,57 @@ export function AdministratorsPage() {
               header: "Expires",
               cell: (row) => date(row.expiresAt),
             },
-            { key: "status", header: "Status", cell: (row) => row.status },
+            {
+              key: "status",
+              header: "Status",
+              cell: (row) => {
+                const status = administratorInvitationStatus(row.status);
+                return <StatusBadge label={status.label} tone={status.tone} />;
+              },
+            },
             {
               key: "action",
               header: "",
-              cell: (row) => (
-                <Button
-                  variant="danger"
-                  onClick={async () => {
-                    const value = await prompt({
-                      title: "Reason for revocation",
-                      description:
-                        "This reason is recorded with the invitation revocation.",
-                      label: "Revocation reason",
-                      submitLabel: "Revoke invitation",
-                    });
-                    if (!value) return;
-                    await adminApi.revokeInvitation(
-                      api,
-                      scope.organizationId,
-                      row.id,
-                      value,
-                    );
-                    setMessage("Invitation revoked.");
-                    invitations.reload();
-                  }}
-                >
-                  Revoke
-                </Button>
-              ),
+              cell: (row) => {
+                const status = administratorInvitationStatus(row.status);
+                if (status.label !== "Pending") return null;
+                return (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    isLoading={actingId === row.id}
+                    disabled={actionFeedback.isSubmitting}
+                    onClick={async () => {
+                      const value = await prompt({
+                        title: "Reason for revocation",
+                        description:
+                          "This reason is recorded with the invitation revocation.",
+                        label: "Revocation reason",
+                        submitLabel: "Revoke invitation",
+                      });
+                      if (!value) return;
+                      setActingId(row.id);
+                      const revoked = await actionFeedback.submit(
+                        () =>
+                          adminApi.revokeInvitation(
+                            api,
+                            scope.organizationId,
+                            row.id,
+                            value,
+                          ),
+                        "Invitation revoked.",
+                      );
+                      setActingId(null);
+                      if (revoked) {
+                        setMessage("Invitation revoked.");
+                        invitations.reload();
+                      }
+                    }}
+                  >
+                    Revoke
+                  </Button>
+                );
+              },
             },
           ]}
         />

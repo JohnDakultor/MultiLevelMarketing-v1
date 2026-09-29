@@ -18,6 +18,7 @@ import {
 import QRCode from "qrcode";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useAgentStorefrontUrl } from "../../app/providers";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
@@ -26,7 +27,9 @@ export function ReferralToolsPage() {
   const api = useApiClient();
   const { confirm } = useConfirmation();
   const regeneration = useFormSubmission();
+  const generation = useFormSubmission();
   const scope = useAgentScope();
+  const storefrontUrl = useAgentStorefrontUrl();
   const referral = useApiQuery(
     (client, signal) => agentApi.referral(client, scope.organizationId, signal),
     [scope.organizationId],
@@ -48,31 +51,45 @@ export function ReferralToolsPage() {
     [scope.organizationId, scope.agentId],
     scope.isReady,
   );
+  const context = useApiQuery(
+    (client, signal) => agentApi.context(client, scope.organizationId, signal),
+    [scope.organizationId],
+    scope.isReady,
+  );
   const [productId, setProductId] = useState("");
   const [productLink, setProductLink] = useState("");
   const [qr, setQr] = useState("");
   const [message, setMessage] = useState("");
-  const [origin] = useState(() =>
-    typeof window === "undefined" ? "" : window.location.origin,
-  );
-  const generalLink =
-    referral.data && origin
-      ? new URL(referral.data.relativeUrl, origin).toString()
-      : "";
+  const generalLink = dashboard.data?.storefrontUrl
+    ? new URL(dashboard.data.storefrontUrl, storefrontUrl).toString()
+    : "";
   useEffect(() => {
     const value = productLink || generalLink;
     if (!value) return;
     void QRCode.toDataURL(value, { width: 240, margin: 1 }).then(setQr);
   }, [generalLink, productLink]);
-  if (referral.isLoading || products.isLoading || dashboard.isLoading)
+  if (
+    referral.isLoading ||
+    products.isLoading ||
+    dashboard.isLoading ||
+    context.isLoading
+  )
     return <Loading />;
   if (referral.error)
     return <Failure error={referral.error} retry={referral.reload} />;
   if (dashboard.error)
     return <Failure error={dashboard.error} retry={dashboard.reload} />;
+  if (products.error)
+    return <Failure error={products.error} retry={products.reload} />;
+  if (context.error)
+    return <Failure error={context.error} retry={context.reload} />;
   const copy = async (value: string) => {
-    await navigator.clipboard.writeText(value);
-    setMessage("Referral link copied.");
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage("Referral link copied.");
+    } catch {
+      setMessage("The link could not be copied. Select and copy it manually.");
+    }
   };
   return (
     <div className="content-stack">
@@ -83,6 +100,16 @@ export function ReferralToolsPage() {
       {!!regeneration.formErrors.length && (
         <Alert title="Referral code could not be regenerated" tone="danger">
           {regeneration.formErrors.join(" ")}
+        </Alert>
+      )}
+      {!!generation.formErrors.length && (
+        <Alert title="Product link could not be generated" tone="danger">
+          {generation.formErrors.join(" ")}
+        </Alert>
+      )}
+      {!context.data?.canShareReferralLinks && (
+        <Alert title="Referral sharing is unavailable" tone="warning">
+          Your Agent account must be active before referral links can be shared.
         </Alert>
       )}
       {dashboard.data && (
@@ -128,11 +155,19 @@ export function ReferralToolsPage() {
           <Card>
             <h2>General storefront link</h2>
             <p className="breakable">{generalLink}</p>
-            <Button onClick={() => void copy(generalLink)}>Copy link</Button>
+            <Button
+              disabled={!context.data?.canShareReferralLinks || !generalLink}
+              onClick={() => void copy(generalLink)}
+            >
+              Copy link
+            </Button>
             <Button
               variant="danger"
               isLoading={regeneration.isSubmitting}
-              disabled={regeneration.isSubmitting}
+              disabled={
+                regeneration.isSubmitting ||
+                !context.data?.canShareReferralLinks
+              }
               onClick={async () => {
                 if (
                   !(await confirm({
@@ -179,14 +214,23 @@ export function ReferralToolsPage() {
               ))}
             </SelectField>
             <Button
-              disabled={!productId}
+              isLoading={generation.isSubmitting}
+              disabled={
+                !productId ||
+                generation.isSubmitting ||
+                !context.data?.canShareReferralLinks
+              }
               onClick={async () => {
-                const result = await agentApi.productReferral(
-                  api,
-                  scope.organizationId,
-                  productId,
-                );
-                setProductLink(result.canonicalUrl);
+                let canonicalUrl = "";
+                const generated = await generation.submit(async () => {
+                  const result = await agentApi.productReferral(
+                    api,
+                    scope.organizationId,
+                    productId,
+                  );
+                  canonicalUrl = result.canonicalUrl;
+                }, "Product referral link generated.");
+                if (generated) setProductLink(canonicalUrl);
               }}
             >
               Generate product link

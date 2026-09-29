@@ -78,20 +78,18 @@ public class IdentityService : IIdentityService
         CancellationToken cancellationToken
     )
     {
-        var user = await _userManager.Users.SingleOrDefaultAsync(
+        var validation = await ValidateAgentAccessAssignmentAsync(
+            userId,
+            organizationId,
+            cancellationToken
+        );
+        if (!validation.Succeeded)
+            return validation;
+
+        var user = await _userManager.Users.SingleAsync(
             candidate => candidate.Id == userId,
             cancellationToken
         );
-        if (user is null)
-            return Result.Failure(["The Agent's identity account was not found."]);
-
-        if (
-            user.OrganizationId is { } assignedOrganizationId
-            && assignedOrganizationId != organizationId
-        )
-            return Result.Failure([
-                "The identity account is already assigned to another Organization.",
-            ]);
 
         if (!await _roleManager.RoleExistsAsync(Roles.Agent))
         {
@@ -112,6 +110,27 @@ public class IdentityService : IIdentityService
             return Result.Success();
 
         return (await _userManager.AddToRoleAsync(user, Roles.Agent)).ToApplicationResult();
+    }
+
+    public async Task<Result> ValidateAgentAccessAssignmentAsync(
+        string userId,
+        Guid organizationId,
+        CancellationToken cancellationToken
+    )
+    {
+        var user = await _userManager.Users.AsNoTracking().SingleOrDefaultAsync(
+            candidate => candidate.Id == userId,
+            cancellationToken
+        );
+        if (user is null)
+            return Result.Failure(["The Agent's identity account was not found."]);
+
+        return user.OrganizationId is { } assignedOrganizationId
+            && assignedOrganizationId != organizationId
+            ? Result.Failure([
+                "The identity account is already assigned to another Organization.",
+            ])
+            : Result.Success();
     }
 
     public async Task<bool> AuthorizeAsync(string userId, string policyName)

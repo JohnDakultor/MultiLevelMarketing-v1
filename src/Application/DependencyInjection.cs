@@ -3,6 +3,7 @@ using Domain.Services;
 using Microsoft.Extensions.Hosting;
 using modular_mlm.Application.Common.Behaviours;
 using modular_mlm.Application.Common.Services;
+using modular_mlm.Application.Common.Features;
 using modular_mlm.Domain.Services;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         builder.Services.AddSingleton<CustomerRefundEligibilityPolicy>();
         builder.Services.AddSingleton<PayoutEligibilityEvaluator>();
         builder.Services.AddScoped<CustomerContextProvisioner>();
+        builder.Services.AddScoped<IOrganizationFeatureGate, OrganizationFeatureGate>();
 
         builder.Services.AddMediatR(cfg =>
         {
@@ -36,6 +38,7 @@ public static class DependencyInjection
             cfg.AddOpenBehavior(typeof(CustomerContextProvisioningBehaviour<,>));
             cfg.AddOpenBehavior(typeof(DynamicAuthorizationBehaviour<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehaviour<,>));
+            cfg.AddOpenBehavior(typeof(OrganizationFeatureGateBehaviour<,>));
             cfg.AddOpenBehavior(typeof(QueryCachingBehaviour<,>));
             cfg.AddOpenBehavior(typeof(PerformanceBehaviour<,>));
         });

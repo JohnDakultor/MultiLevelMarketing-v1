@@ -132,33 +132,21 @@ test("Administrator manually places an Agent using a discovered parent", async (
   await expect(page.getByText("Agent placement updated.")).toBeVisible();
 });
 
-for (const operation of ["verify", "reject"] as const) {
-  test(`Administrator can ${operation} a payout account from a selected payout`, async ({
-    page,
-  }) => {
-    await signIn(page, "E2E_ADMIN_EMAIL", "E2E_ADMIN_PASSWORD");
-    const prefix = requiredEnvironment(
-      operation === "verify"
-        ? "E2E_VERIFY_PAYOUT_REQUEST_PREFIX"
-        : "E2E_REJECT_PAYOUT_REQUEST_PREFIX",
-    );
-    await page.goto("/payouts");
-    const payoutRow = page.getByRole("row", { name: new RegExp(prefix, "i") });
-    await payoutRow.getByRole("button", { name: "Details" }).click();
-    await page
-      .getByRole("button", {
-        name:
-          operation === "verify"
-            ? "Verify payout account"
-            : "Reject payout account",
-      })
-      .click();
-    await page
-      .getByRole("dialog", { name: `${operation} payout account?` })
-      .getByRole("button", { name: `${operation} account` })
-      .click();
-    await expect(
-      page.getByText(`Payout account ${operation} completed.`),
-    ).toBeVisible();
+test("Administrator verifies a discovered pending payout account", async ({
+  page,
+}) => {
+  await signIn(page, "E2E_ADMIN_EMAIL", "E2E_ADMIN_PASSWORD");
+  const agentCode = requiredEnvironment(
+    "E2E_PENDING_PAYOUT_ACCOUNT_AGENT_CODE",
+  );
+  await page.goto("/payouts");
+  const accountRow = page.getByRole("row", {
+    name: new RegExp(agentCode, "i"),
   });
-}
+  await accountRow.getByRole("button", { name: "Verify" }).click();
+  await page
+    .getByRole("dialog", { name: "verify payout account?" })
+    .getByRole("button", { name: "Verify account" })
+    .click();
+  await expect(page.getByText("Payout account verified.")).toBeVisible();
+});

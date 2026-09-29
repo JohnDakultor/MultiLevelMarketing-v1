@@ -51,6 +51,26 @@ test("Administrator access remains scoped to the current Organization", () => {
   assert.equal(preferredPortal(administrator), "admin");
 });
 
+test("Platform Administrator can administer any resolved Organization", () => {
+  const platformAdministrator = user({
+    roles: [Roles.platformAdministrator],
+    organizationId: null,
+  });
+
+  assert.equal(
+    canAdministerOrganization(platformAdministrator, organizationId),
+    true,
+  );
+  assert.equal(
+    hasCapability(
+      platformAdministrator,
+      Capabilities.organizationAdministration,
+    ),
+    true,
+  );
+  assert.equal(canAccessPortal(platformAdministrator, "admin"), true);
+});
+
 test("navigation capabilities are derived from identity instead of UI role strings", () => {
   const agent = user({
     roles: [Roles.agent],

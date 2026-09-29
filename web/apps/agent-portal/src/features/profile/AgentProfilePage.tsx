@@ -1,10 +1,16 @@
 "use client";
-import { useApiClient, useApiQuery } from "@modular-mlm/api-client";
+import {
+  useApiClient,
+  useApiQuery,
+  useFormSubmission,
+} from "@modular-mlm/api-client";
+import { AgentStatus } from "@modular-mlm/contracts";
 import {
   Alert,
   Button,
   Card,
   EmptyState,
+  FormErrorSummary,
   PageHeader,
   SelectField,
 } from "@modular-mlm/design-system";
@@ -12,10 +18,12 @@ import { useState } from "react";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading, date } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import { AgentStatusBadge } from "../shared/status";
 
 export function AgentProfilePage() {
   const api = useApiClient();
   const scope = useAgentScope();
+  const feedback = useFormSubmission();
   const profile = useApiQuery(
     (client, signal) => agentApi.profile(client, scope.organizationId, signal),
     [scope.organizationId],
@@ -30,8 +38,17 @@ export function AgentProfilePage() {
   const [preferredLeg, setPreferredLeg] = useState("");
   const [message, setMessage] = useState("");
   if (profile.isLoading || qualification.isLoading) return <Loading />;
-  if (profile.error)
-    return <Failure error={profile.error} retry={profile.reload} />;
+  const loadError = profile.error ?? qualification.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          profile.reload();
+          qualification.reload();
+        }}
+      />
+    );
   if (!profile.data)
     return (
       <EmptyState
@@ -46,6 +63,12 @@ export function AgentProfilePage() {
         description="Identity fields are read-only because the backend exposes only preferred-leg editing."
       />
       {message && <Alert title={message} tone="success" />}
+      {profile.data.status !== AgentStatus.active && (
+        <Alert title="Profile actions are restricted" tone="warning">
+          Placement preferences can be changed only while the Agent account is
+          active.
+        </Alert>
+      )}
       <div className="detail-grid">
         <Card>
           <h2>{profile.data.displayName}</h2>
@@ -57,7 +80,9 @@ export function AgentProfilePage() {
             <dt>Email</dt>
             <dd>{profile.data.email}</dd>
             <dt>Status</dt>
-            <dd>{profile.data.status}</dd>
+            <dd>
+              <AgentStatusBadge value={profile.data.status} />
+            </dd>
             <dt>Joined</dt>
             <dd>{date(profile.data.joinedAt)}</dd>
             <dt>Sponsor</dt>
@@ -68,6 +93,11 @@ export function AgentProfilePage() {
         </Card>
         <Card>
           <h2>Placement preference</h2>
+          <FormErrorSummary
+            errors={feedback.fieldErrors}
+            generalErrors={feedback.formErrors}
+            id={feedback.errorSummaryId}
+          />
           <SelectField
             id="preferred-leg"
             label="Preferred leg"
@@ -78,14 +108,25 @@ export function AgentProfilePage() {
             <option value="1">Right</option>
           </SelectField>
           <Button
+            isLoading={feedback.isSubmitting}
+            disabled={
+              feedback.isSubmitting ||
+              profile.data.status !== AgentStatus.active
+            }
             onClick={async () => {
-              await agentApi.setPreferredLeg(
-                api,
-                scope.organizationId,
-                Number(preferredLeg || profile.data!.preferredLeg || 0),
+              const saved = await feedback.submit(
+                () =>
+                  agentApi.setPreferredLeg(
+                    api,
+                    scope.organizationId,
+                    Number(preferredLeg || profile.data!.preferredLeg || 0),
+                  ),
+                "Preferred leg updated.",
               );
-              setMessage("Preferred leg updated.");
-              profile.reload();
+              if (saved) {
+                setMessage("Preferred leg updated.");
+                profile.reload();
+              }
             }}
           >
             Save preference

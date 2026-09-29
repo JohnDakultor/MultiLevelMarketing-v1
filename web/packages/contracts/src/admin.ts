@@ -13,6 +13,38 @@ export interface AdminProductDto {
   businessVolume: number;
   stockQuantity: number;
 }
+export interface AdminCustomerSummaryDto {
+  id: Guid;
+  displayName: string;
+  email: string;
+  status: number;
+  registeredAt: IsoDateTime;
+  orderCount: number;
+  grossOrderValue: number;
+  currency: string | null;
+}
+export type AdminCustomersPageDto = Page<AdminCustomerSummaryDto>;
+export interface AdminCustomerOrderSummaryDto {
+  id: Guid;
+  orderNumber: string;
+  status: number;
+  paymentStatus: number;
+  grandTotal: number;
+  currency: string;
+  created: IsoDateTime;
+}
+export interface AdminCustomerDetailsDto {
+  id: Guid;
+  displayName: string;
+  email: string;
+  status: number;
+  registeredAt: IsoDateTime;
+  lastModified: IsoDateTime;
+  addressCount: number;
+  orderCount: number;
+  grossOrderValue: number;
+  recentOrders: AdminCustomerOrderSummaryDto[];
+}
 export interface AdminProductVariantDto {
   id: Guid;
   sku: string;
@@ -307,6 +339,23 @@ export type AdminProductsPageDto = Page<AdminProductDto>;
 export type AdminAgentsPageDto = Page<AdminAgentSummaryDto>;
 export type InventoryPageDto = Page<InventoryItemDto>;
 export type AdministratorPayoutsDto = PayoutHistoryItemDto[];
+
+export interface AdminPayoutAccountDto {
+  id: Guid;
+  agentId: Guid;
+  agentCode: string;
+  method: string;
+  maskedAccountData: string;
+  bankCode: string;
+  rail: string;
+  verificationStatus: number;
+  isDefault: boolean;
+  createdAt: IsoDateTime;
+}
+
+export type AdminPayoutAccountsPageDto = Page<AdminPayoutAccountDto> & {
+  organizationId: Guid;
+};
 
 export interface AdminOrderSummaryDto {
   id: Guid;

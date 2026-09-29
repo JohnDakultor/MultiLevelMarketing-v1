@@ -30,4 +30,23 @@ public sealed class ObjectNameGenerator : IObjectNameGenerator
         var identifier = RandomNumberGenerator.GetHexString(16).ToLowerInvariant();
         return $"organizations/{organizationId:D}/branding/{kind}/{identifier}.{extension}";
     }
+
+    public string CreateProductImageObjectKey(
+        Guid organizationId,
+        Guid productId,
+        string safeExtension
+    )
+    {
+        if (organizationId == Guid.Empty)
+            throw new ArgumentException("Organization is required.", nameof(organizationId));
+        if (productId == Guid.Empty)
+            throw new ArgumentException("Product is required.", nameof(productId));
+
+        var extension = safeExtension.Trim().TrimStart('.').ToLowerInvariant();
+        if (extension is not ("png" or "jpg"))
+            throw new ArgumentException("File extension is not supported.", nameof(safeExtension));
+
+        var identifier = RandomNumberGenerator.GetHexString(16).ToLowerInvariant();
+        return $"organizations/{organizationId:D}/products/{productId:D}/images/{identifier}.{extension}";
+    }
 }

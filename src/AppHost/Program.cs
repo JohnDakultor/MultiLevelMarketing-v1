@@ -1,4 +1,5 @@
 using Aspire.Hosting.ApplicationModel;
+using Azure.Provisioning.Storage;
 using modular_mlm.Shared;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -9,6 +10,10 @@ if (string.IsNullOrWhiteSpace(organizationSlug))
 var administratorEmail = builder.Configuration["SEED_ADMINISTRATOR_EMAIL"]?.Trim();
 if (string.IsNullOrWhiteSpace(administratorEmail))
     administratorEmail = "administrator@localhost";
+
+var publicApiBaseUrl = builder.Configuration["PUBLIC_API_BASE_URL"]?.Trim().TrimEnd('/');
+var publicAdminBaseUrl = builder.Configuration["PUBLIC_ADMIN_BASE_URL"]?.Trim().TrimEnd('/');
+var publicStorefrontBaseUrl = builder.Configuration["PUBLIC_STOREFRONT_BASE_URL"]?.Trim().TrimEnd('/');
 
 builder.AddAzureContainerAppEnvironment("aca-env");
 
@@ -30,6 +35,22 @@ var dataProtectionStorage = storage.AddBlobContainer(
     Services.DataProtectionContainer,
     blobContainerName: Services.DataProtectionContainer
 );
+storage.ConfigureInfrastructure(infrastructure =>
+{
+    var resources = infrastructure.GetProvisionableResources();
+    var account = resources.OfType<StorageAccount>().Single();
+    account.AllowBlobPublicAccess = true;
+
+    var assetContainer = resources
+        .OfType<BlobContainer>()
+        .Single(container =>
+            container.Name.Value?.EndsWith(
+                Services.ObjectStorageContainer,
+                StringComparison.Ordinal
+            ) == true
+        );
+    assetContainer.PublicAccess = StoragePublicAccessType.Blob;
+});
 
 var databaseMigrator = builder
     .AddProject<Projects.DatabaseMigrator>(Services.DatabaseMigrator)
@@ -81,12 +102,33 @@ if (builder.ExecutionContext.IsPublishMode)
 {
     var keyVault = builder.AddAzureKeyVault(Services.KeyVault);
     web.WithReference(keyVault).WaitFor(keyVault);
+
+    if (
+        string.IsNullOrWhiteSpace(publicApiBaseUrl)
+        || string.IsNullOrWhiteSpace(publicAdminBaseUrl)
+        || string.IsNullOrWhiteSpace(publicStorefrontBaseUrl)
+    )
+        throw new InvalidOperationException(
+            "PUBLIC_API_BASE_URL, PUBLIC_ADMIN_BASE_URL, and PUBLIC_STOREFRONT_BASE_URL are required when publishing."
+        );
+
+    web.WithEnvironment(
+            "PayMongo__PayoutCallbackUrl",
+            $"{publicApiBaseUrl}/api/webhooks/paymongo/transfers"
+        )
+        .WithEnvironment(
+            "AdministratorInvitations__AcceptanceBaseUrl",
+            $"{publicAdminBaseUrl}/invitations/accept"
+        )
+        .WithEnvironment(
+            "IdentitySecurity__PasswordResetBaseUrl",
+            $"{publicStorefrontBaseUrl}/reset-password"
+        );
 }
 
 var storefront = AddFrontend(Services.Storefront, "apps/storefront/Dockerfile");
 AddFrontend(Services.AgentPortal, "apps/agent-portal/Dockerfile")
-    .WithEnvironment("STOREFRONT_URL", storefront.GetEndpoint("http"))
-    .WaitFor(storefront);
+    .WithEnvironment("STOREFRONT_URL", storefront.GetEndpoint("http"));
 AddFrontend(Services.AdminPortal, "apps/admin-portal/Dockerfile")
     .WithEnvironment("STOREFRONT_URL", storefront.GetEndpoint("http"))
     .WaitFor(storefront);

@@ -15,6 +15,7 @@ public sealed class Product : OrganizationEntity
     public Guid CategoryId { get; private set; }
     public string? Brand { get; private set; }
     public string? DefaultImageUrl { get; private set; }
+    public string? DefaultImageObjectKey { get; private set; }
     public Guid? CommissionProfileId { get; private set; }
     public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
 
@@ -72,6 +73,27 @@ public sealed class Product : OrganizationEntity
         Name = name.Trim();
         Description = description.Trim();
         CategoryId = categoryId;
+    }
+
+    public void SetDefaultImage(string imageUrl, string objectKey)
+    {
+        if (
+            !Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            || !string.IsNullOrEmpty(uri.UserInfo)
+        )
+            throw new DomainInvariantException("Product image URL must be a trusted HTTP URL.");
+        if (string.IsNullOrWhiteSpace(objectKey))
+            throw new DomainInvariantException("Product image object key is required.");
+
+        DefaultImageUrl = uri.AbsoluteUri;
+        DefaultImageObjectKey = objectKey.Trim();
+    }
+
+    public void RemoveDefaultImage()
+    {
+        DefaultImageUrl = null;
+        DefaultImageObjectKey = null;
     }
 
     public void AssignCommissionProfile(Guid? profileId) => CommissionProfileId = profileId;

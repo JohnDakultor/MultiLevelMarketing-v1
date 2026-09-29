@@ -6,10 +6,18 @@ import {
   useAuthentication,
 } from "@modular-mlm/auth";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect } from "react";
 import { useAgentStorefrontUrl } from "../app/providers";
+import { Alert } from "@modular-mlm/design-system";
 
-export function AgentSignInPage() {
+export function AgentSignInPage({
+  accountCreated = false,
+  registeredEmail = "",
+}: {
+  accountCreated?: boolean;
+  registeredEmail?: string;
+}) {
   const router = useRouter();
   const authentication = useAuthentication();
   const storefrontUrl = useAgentStorefrontUrl();
@@ -20,9 +28,16 @@ export function AgentSignInPage() {
 
   return (
     <div className="auth-page">
+      {accountCreated && (
+        <Alert tone="success" title="Account created">
+          Confirm your email address if required, then sign in to submit your
+          Agent application.
+        </Alert>
+      )}
       <SignInForm
         title="Agent sign in"
         description="Access your network, sales, commissions, wallet, and payouts."
+        initialEmail={registeredEmail}
         onSuccess={() => router.replace(readReturnPath())}
       />
       <p>
@@ -30,13 +45,7 @@ export function AgentSignInPage() {
       </p>
       <p>
         New Agent?{" "}
-        <a
-          href={`${storefrontUrl}/register?returnTo=${encodeURIComponent(
-            "/account/agent-application",
-          )}`}
-        >
-          Create an account and apply
-        </a>
+        <Link href="/register">Create an account and apply here</Link>
       </p>
     </div>
   );

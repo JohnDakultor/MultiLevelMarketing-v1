@@ -48,9 +48,19 @@ public sealed class CustomerContextProvisioner(
                 );
             await EnsureCustomerRoleAsync(userId);
 
-            customer = CustomerProfile.Create(organizationId, userId, CreateDisplayName(userName));
+            customer = CustomerProfile.Create(
+                organizationId,
+                userId,
+                CreateDisplayName(userName),
+                userName
+            );
             db.CustomerProfiles.Add(customer);
         }
+
+        if (customer.Status != CustomerStatus.Active)
+            throw new UnauthorizedAccessException(
+                "This customer account is not active for the organization."
+            );
 
         var sessionId = cartSessions.GetSessionId();
         if (sessionId is null)

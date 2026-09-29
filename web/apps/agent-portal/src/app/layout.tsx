@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import "@modular-mlm/design-system/styles.css";
+import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import { AgentPortalProviders } from "./providers";
 import { AgentPortalShell } from "../components/AgentPortalShell";

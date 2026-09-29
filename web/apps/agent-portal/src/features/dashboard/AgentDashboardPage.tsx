@@ -1,10 +1,11 @@
 "use client";
 
 import { useApiQuery } from "@modular-mlm/api-client";
-import { Alert, Card, PageHeader } from "@modular-mlm/design-system";
+import { Alert, Card, PageHeader, StatsCard } from "@modular-mlm/design-system";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading, money } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import { commissionTypeLabel } from "../shared/status";
 
 export function AgentDashboardPage() {
   const scope = useAgentScope();
@@ -36,8 +37,18 @@ export function AgentDashboardPage() {
   );
   if (report.isLoading || qualification.isLoading || earnings.isLoading)
     return <Loading />;
-  if (report.error)
-    return <Failure error={report.error} retry={report.reload} />;
+  const loadError = report.error ?? qualification.error ?? earnings.error;
+  if (loadError)
+    return (
+      <Failure
+        error={loadError}
+        retry={() => {
+          report.reload();
+          qualification.reload();
+          earnings.reload();
+        }}
+      />
+    );
   return (
     <div className="content-stack">
       <PageHeader
@@ -54,36 +65,38 @@ export function AgentDashboardPage() {
           }
           tone={qualification.data.isQualified ? "success" : "warning"}
         >
-          {qualification.data.failures
-            .map((failure) => failure.message)
-            .join(" · ") || qualification.data.state}
+          {qualification.data.isQualified
+            ? `All configured qualification requirements are met. Recorded qualification state: ${qualification.data.state}.`
+            : qualification.data.failures
+                .map((failure) => failure.message)
+                .join(" · ")}
         </Alert>
       )}
       <div className="metric-grid">
-        <Metric
+        <StatsCard
           label="Attributed sales"
           value={money(
             report.data?.netAttributedSales ?? 0,
             report.data?.currency ?? scope.currency,
           )}
         />
-        <Metric
+        <StatsCard
           label="Orders"
           value={String(report.data?.attributedOrders ?? 0)}
         />
-        <Metric
+        <StatsCard
           label="Business volume"
           value={String(report.data?.businessVolume ?? 0)}
         />
-        <Metric
+        <StatsCard
           label="Direct recruits"
           value={String(report.data?.directRecruits ?? 0)}
         />
-        <Metric
+        <StatsCard
           label="Available earnings"
           value={money(earnings.data?.availableAmount ?? 0, scope.currency)}
         />
-        <Metric
+        <StatsCard
           label="Pending earnings"
           value={money(earnings.data?.pendingAmount ?? 0, scope.currency)}
         />
@@ -93,7 +106,7 @@ export function AgentDashboardPage() {
         {report.data?.commissions.length ? (
           report.data.commissions.map((item) => (
             <p key={item.type}>
-              Type {item.type}: {item.count} ·{" "}
+              {commissionTypeLabel(item.type)}: {item.count} ·{" "}
               {money(item.amount, report.data!.currency)}
             </p>
           ))
@@ -102,13 +115,5 @@ export function AgentDashboardPage() {
         )}
       </Card>
     </div>
-  );
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <span>{label}</span>
-      <strong className="metric-value">{value}</strong>
-    </Card>
   );
 }

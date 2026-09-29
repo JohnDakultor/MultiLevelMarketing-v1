@@ -29,8 +29,17 @@ public class AdministratorAccountService(
             cancellationToken
         );
 
-        return user is not null
-            && user.OrganizationId == organizationId
+        if (user is null)
+            return false;
+
+        // Platform administrators provision and support organizations before a
+        // tenant-bound administrator exists. Keep this lower-level check aligned
+        // with ApplicationAuthorizationService so handlers that call either
+        // abstraction enforce the same global platform authority.
+        if (await userManager.IsInRoleAsync(user, Roles.PlatformAdministrator))
+            return true;
+
+        return user.OrganizationId == organizationId
             && await userManager.IsInRoleAsync(user, Roles.Administrator);
     }
 

@@ -60,6 +60,14 @@ public static class AuditCoverageMap
         AuditActionNames.ProductUpdated,
         AuditEntityNames.Product
     );
+    public static readonly AuditCoverageDefinition ProductImageUploaded = Define(
+        AuditActionNames.ProductImageUploaded,
+        AuditEntityNames.Product
+    );
+    public static readonly AuditCoverageDefinition ProductImageRemoved = Define(
+        AuditActionNames.ProductImageRemoved,
+        AuditEntityNames.Product
+    );
     public static readonly AuditCoverageDefinition ProductVariantCreated = Define(
         AuditActionNames.ProductVariantCreated,
         AuditEntityNames.ProductVariant
@@ -132,6 +140,10 @@ public static class AuditCoverageMap
     );
     public static readonly AuditCoverageDefinition OrganizationDomainConfigured = Define(
         AuditActionNames.OrganizationDomainConfigured,
+        AuditEntityNames.OrganizationDomain
+    );
+    public static readonly AuditCoverageDefinition OrganizationDomainVerified = Define(
+        AuditActionNames.OrganizationDomainVerified,
         AuditEntityNames.OrganizationDomain
     );
     public static readonly AuditCoverageDefinition OrganizationDomainRemoved = Define(
@@ -292,6 +304,11 @@ public static class AuditCoverageMap
         AuditEntityNames.OutboxMessage,
         true
     );
+    public static readonly AuditCoverageDefinition CustomerStatusChanged = Define(
+        AuditActionNames.CustomerStatusChanged,
+        AuditEntityNames.CustomerProfile,
+        true
+    );
 
     private static readonly ReadOnlyCollection<AuditCoverageDefinition> Definitions =
         Array.AsReadOnly(
@@ -312,6 +329,8 @@ public static class AuditCoverageMap
                 ProductVariantUpdated,
                 ProductVariantArchived,
                 ProductUpdated,
+                ProductImageUploaded,
+                ProductImageRemoved,
                 ProductPublished,
                 ProductArchived,
                 CommissionProfileCreated,
@@ -322,6 +341,7 @@ public static class AuditCoverageMap
                 BrandingPublished,
                 BrandingAssetUploaded,
                 OrganizationDomainConfigured,
+                OrganizationDomainVerified,
                 OrganizationDomainRemoved,
                 BrandingUpdated,
                 FeaturesUpdated,
@@ -359,6 +379,7 @@ public static class AuditCoverageMap
                 AdministratorPasswordChanged,
                 AdministratorTwoFactorChanged,
                 OutboxMessageReplayed,
+                CustomerStatusChanged,
             }
         );
 

@@ -50,8 +50,8 @@ public sealed class AutoPlaceAgentCommandHandler(
         if (agent.PlacementParentAgentId is not null)
             throw new InvalidOperationException("Agent is already placed.");
         if (agent.SponsorAgentId is null)
-            throw new InvalidOperationException(
-                "Automatic placement requires a sponsor to define the placement subtree."
+            throw new ConflictException(
+                "The founding Agent is the network root and must remain without a placement parent."
             );
         if (agent.Status is AgentStatus.Suspended or AgentStatus.Closed or AgentStatus.Inactive)
             throw new InvalidOperationException(

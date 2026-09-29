@@ -18,7 +18,9 @@ public sealed class Administrators : IEndpointGroup
 
     public static void Map(RouteGroupBuilder group)
     {
-        group.RequireAuthorization(policy => policy.RequireRole(Roles.Administrator));
+        group.RequireAuthorization(policy =>
+            policy.RequireRole(Roles.Administrator, Roles.PlatformAdministrator)
+        );
 
         group.MapGet(GetAdministrators);
         group

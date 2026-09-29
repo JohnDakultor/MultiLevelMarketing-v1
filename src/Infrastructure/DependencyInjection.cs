@@ -17,6 +17,7 @@ using modular_mlm.Infrastructure.Identity;
 using modular_mlm.Infrastructure.Messaging;
 using modular_mlm.Infrastructure.Monitoring;
 using modular_mlm.Infrastructure.Notifications;
+using modular_mlm.Infrastructure.Organizations;
 using modular_mlm.Infrastructure.Payments;
 using modular_mlm.Infrastructure.Payouts;
 using modular_mlm.Infrastructure.Services;
@@ -59,6 +60,8 @@ public static class DependencyInjection
         builder.Services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>()
         );
+        builder.Services.AddSingleton(new DnsClient.LookupClient());
+        builder.Services.AddSingleton<IDnsTxtRecordResolver, DnsTxtRecordResolver>();
 
         builder.Services.AddSingleton<IDatabaseExceptionClassifier, PostgresDatabaseExceptionClassifier>();
 
@@ -113,9 +116,14 @@ public static class DependencyInjection
             .Services.AddOptions<AdministratorInvitationOptions>()
             .Bind(builder.Configuration.GetSection(AdministratorInvitationOptions.SectionName))
             .Validate(
-                options => options.LifetimeHours > 0,
-                "Invitation lifetime must be positive."
-            );
+                AdministratorInvitationOptions.IsValid,
+                "Administrator invitation settings are invalid."
+            )
+            .Validate(
+                options => builder.Environment.IsDevelopment() || AdministratorInvitationOptions.IsValidForDeployment(options),
+                "Administrator invitation acceptance URL must be a public HTTPS URL outside Development."
+            )
+            .ValidateOnStart();
         builder.Services.AddSingleton<
             IAdministratorInvitationPolicy,
             AdministratorInvitationPolicy
@@ -123,7 +131,12 @@ public static class DependencyInjection
         builder.Services.AddSingleton<ICache, InMemoryCache>();
         builder
             .Services.AddOptions<PayMongoOptions>()
-            .Bind(builder.Configuration.GetSection(PayMongoOptions.SectionName));
+            .Bind(builder.Configuration.GetSection(PayMongoOptions.SectionName))
+            .Validate(
+                options => PayMongoOptions.HasValidCallback(options, builder.Environment.IsDevelopment()),
+                "PayMongo payout callback URL must be a public HTTPS URL outside Development."
+            )
+            .ValidateOnStart();
         builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>(
             (provider, client) =>
             {
@@ -150,6 +163,7 @@ public static class DependencyInjection
             IBrandingAssetContentInspector,
             BrandingAssetContentInspector
         >();
+        builder.Services.AddSingleton<IProductImageContentInspector, ProductImageContentInspector>();
         var blobSection = builder.Configuration.GetSection(
             AzureBlobObjectStorageOptions.SectionName
         );
