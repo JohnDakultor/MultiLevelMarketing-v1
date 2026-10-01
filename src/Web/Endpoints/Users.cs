@@ -12,6 +12,7 @@ public class Users : IEndpointGroup
     public static void Map(RouteGroupBuilder groupBuilder)
     {
         groupBuilder.RequireRateLimiting(RateLimitPolicyNames.Authentication);
+        groupBuilder.AddEndpointFilter<CompensatingIdentityRegistrationEndpointFilter>();
         groupBuilder.AddEndpointFilter<IdentitySecurityAuditEndpointFilter>();
         groupBuilder.MapIdentityApi<ApplicationUser>();
 

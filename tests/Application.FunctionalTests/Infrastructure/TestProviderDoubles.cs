@@ -1,7 +1,37 @@
+using Microsoft.AspNetCore.Identity;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Application.Common.Models;
+using modular_mlm.Infrastructure.Identity;
 
 namespace modular_mlm.Application.FunctionalTests.Infrastructure;
+
+public sealed class TestIdentityEmailSender : IEmailSender<ApplicationUser>
+{
+    public bool FailConfirmationDelivery { get; set; }
+
+    public Task SendConfirmationLinkAsync(
+        ApplicationUser user,
+        string email,
+        string confirmationLink
+    ) =>
+        FailConfirmationDelivery
+            ? Task.FromException(new InvalidOperationException("SMTP delivery failed."))
+            : Task.CompletedTask;
+
+    public Task SendPasswordResetLinkAsync(
+        ApplicationUser user,
+        string email,
+        string resetLink
+    ) => Task.CompletedTask;
+
+    public Task SendPasswordResetCodeAsync(
+        ApplicationUser user,
+        string email,
+        string resetCode
+    ) => Task.CompletedTask;
+
+    public void Reset() => FailConfirmationDelivery = false;
+}
 
 public sealed class TestAdministratorInvitationDelivery
     : IAdministratorInvitationDelivery,

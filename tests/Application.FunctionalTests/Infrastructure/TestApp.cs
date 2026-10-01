@@ -153,6 +153,7 @@ public static class TestApp
         scope.ServiceProvider.GetRequiredService<TestPayoutProvider>().Reset();
         scope.ServiceProvider.GetRequiredService<TestObjectStorage>().Reset();
         scope.ServiceProvider.GetRequiredService<TestDnsTxtRecordResolver>().Reset();
+        scope.ServiceProvider.GetRequiredService<TestIdentityEmailSender>().Reset();
     }
 
     public static TService GetRequiredService<TService>()

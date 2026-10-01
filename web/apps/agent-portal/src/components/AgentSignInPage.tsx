@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ResendConfirmationAction,
   safeReturnPath,
   SignInForm,
   useAuthentication,
@@ -33,6 +34,9 @@ export function AgentSignInPage({
           Confirm your email address if required, then sign in to submit your
           Agent application.
         </Alert>
+      )}
+      {accountCreated && registeredEmail && (
+        <ResendConfirmationAction email={registeredEmail} />
       )}
       <SignInForm
         title="Agent sign in"

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Domain.Constants;
 using modular_mlm.Infrastructure.BackgroundJobs;
+using modular_mlm.Infrastructure.Identity;
 
 namespace modular_mlm.Application.FunctionalTests.Infrastructure;
 
@@ -63,6 +65,7 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
             services.RemoveAll<IPayoutAccountProtector>();
             services.RemoveAll<IObjectStorage>();
             services.RemoveAll<IDnsTxtRecordResolver>();
+            services.RemoveAll<IEmailSender<ApplicationUser>>();
             services.AddSingleton<TestAdministratorInvitationDelivery>();
             services.AddSingleton<IAdministratorInvitationDelivery>(provider =>
                 provider.GetRequiredService<TestAdministratorInvitationDelivery>()
@@ -86,6 +89,10 @@ public class WebApiFactory(string connectionString) : WebApplicationFactory<Prog
             services.AddSingleton<TestDnsTxtRecordResolver>();
             services.AddSingleton<IDnsTxtRecordResolver>(provider =>
                 provider.GetRequiredService<TestDnsTxtRecordResolver>()
+            );
+            services.AddSingleton<TestIdentityEmailSender>();
+            services.AddSingleton<IEmailSender<ApplicationUser>>(provider =>
+                provider.GetRequiredService<TestIdentityEmailSender>()
             );
             services
                 .RemoveAll<IUser>()
