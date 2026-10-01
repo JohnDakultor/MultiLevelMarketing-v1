@@ -20,7 +20,10 @@ export function GET(request: NextRequest): NextResponse {
   const returnTo = isLocalReturnPath(requestedReturnTo)
     ? requestedReturnTo
     : "/";
-  const response = NextResponse.redirect(new URL(returnTo, request.url));
+  const response = new NextResponse(null, {
+    status: 303,
+    headers: { Location: returnTo },
+  });
   response.cookies.set(organizationSelectionCookie, slug, {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 365,
