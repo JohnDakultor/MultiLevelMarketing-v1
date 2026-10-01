@@ -37,8 +37,10 @@ export default function NewOrganizationPage() {
     const completed = await feedback.submit(async () => {
       const logo = optionalFile(form, "logo");
       const favicon = optionalFile(form, "favicon");
-      validateBrandingAsset(logo, "Logo");
-      validateBrandingAsset(favicon, "Favicon");
+      await Promise.all([
+        validateBrandingAsset(logo, "Logo"),
+        validateBrandingAsset(favicon, "Favicon"),
+      ]);
 
       let id = organizationId;
       if (!id) {
@@ -357,10 +359,10 @@ async function findExistingProvisioning(
   }
 }
 
-function validateBrandingAsset(
+async function validateBrandingAsset(
   file: File | null,
   kind: "Logo" | "Favicon",
-): void {
+): Promise<void> {
   if (!file) return;
 
   const maximumBytes = 5 * 1024 * 1024;
@@ -378,6 +380,36 @@ function validateBrandingAsset(
         ? "Logo files must use PNG or JPEG format."
         : "Favicon files must use PNG or ICO format.",
     );
+  }
+
+  // Keep the backend as the final authority, but reject oversized images before
+  // an organization is created and before the upload consumes network/storage.
+  // ICO decoding support differs between browsers, so its dimensions remain a
+  // server-side check. PNG/JPEG files are consistently supported here.
+  if (
+    file.type.toLowerCase() === "image/x-icon" ||
+    file.type.toLowerCase() === "image/vnd.microsoft.icon" ||
+    typeof createImageBitmap !== "function"
+  ) {
+    return;
+  }
+
+  let image: ImageBitmap;
+  try {
+    image = await createImageBitmap(file);
+  } catch {
+    throw new Error(`${kind} could not be read as an image.`);
+  }
+
+  try {
+    const maximumDimension = kind === "Logo" ? 4096 : 512;
+    if (image.width > maximumDimension || image.height > maximumDimension) {
+      throw new Error(
+        `${kind} dimensions must not exceed ${maximumDimension} × ${maximumDimension} pixels.`,
+      );
+    }
+  } finally {
+    image.close();
   }
 }
 

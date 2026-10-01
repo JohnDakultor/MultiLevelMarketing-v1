@@ -178,7 +178,7 @@ public static class DependencyInjection
                     "Azure Blob public base URL is invalid."
                 )
                 .ValidateOnStart();
-            builder.AddAzureBlobContainerClient(Services.ObjectStorageContainer);
+            builder.AddKeyedAzureBlobContainerClient(Services.ObjectStorageContainer);
             builder.Services.AddScoped<IObjectStorage, AzureBlobObjectStorage>();
         }
         else

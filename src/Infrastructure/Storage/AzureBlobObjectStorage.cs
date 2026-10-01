@@ -1,15 +1,17 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using modular_mlm.Application.Common.Exceptions;
 using modular_mlm.Application.Common.Interfaces;
 using modular_mlm.Application.Common.Models;
+using PlatformServices = modular_mlm.Shared.Services;
 
 namespace modular_mlm.Infrastructure.Storage;
 
 public sealed class AzureBlobObjectStorage(
-    BlobContainerClient container,
+    [FromKeyedServices(PlatformServices.ObjectStorageContainer)] BlobContainerClient container,
     IOptions<AzureBlobObjectStorageOptions> options
 ) : IObjectStorage
 {
