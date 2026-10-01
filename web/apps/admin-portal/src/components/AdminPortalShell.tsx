@@ -57,11 +57,27 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
     return (
       <ApplicationShell
         variant="workspace"
+        appearance="enterprise"
         brand={{ name: "Modular MLM", contextLabel: "Platform Administration" }}
         navigation={[
-          { href: "/", label: "Organization dashboard" },
-          { href: "/platform/organizations/new", label: "Create organization" },
-          { href: "/platform/security", label: "Sign-in sessions" },
+          {
+            href: "/",
+            label: "Organization dashboard",
+            group: "Platform",
+            icon: "dashboard",
+          },
+          {
+            href: "/platform/organizations/new",
+            label: "Create organization",
+            group: "Platform",
+            icon: "organization",
+          },
+          {
+            href: "/platform/security",
+            label: "Sign-in sessions",
+            group: "Security",
+            icon: "security",
+          },
         ]}
         currentPath={pathname}
         account={<AdminAccountAction />}
@@ -111,6 +127,7 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
   return (
     <ApplicationShell
       variant="workspace"
+      appearance="enterprise"
       brand={{
         name: organization.name,
         contextLabel: "Admin Portal",
@@ -130,9 +147,18 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
 function AdminAccountAction() {
   const authentication = useAuthentication();
   const router = useRouter();
+  const displayName = authentication.user?.displayName ?? "Administrator";
   return (
     <>
-      <span className="account-name">{authentication.user?.displayName}</span>
+      <span className="account-identity">
+        <span className="account-avatar" aria-hidden>
+          {displayName.slice(0, 1).toUpperCase()}
+        </span>
+        <span className="account-identity__copy">
+          <strong>{displayName}</strong>
+          <small>Administrator</small>
+        </span>
+      </span>
       <Button
         variant="ghost"
         onClick={async () => {

@@ -3,6 +3,7 @@ using modular_mlm.Application.Organizations.Commands.CreateOrganization;
 using modular_mlm.Application.Organizations.Commands.UpdateCommerceSettings;
 using modular_mlm.Application.Organizations.Commands.UpdateOrganizationProfile;
 using modular_mlm.Application.Organizations.Queries.GetAdminOrganizationSettings;
+using modular_mlm.Application.Organizations.Queries.GetOrganizationProvisioning;
 using modular_mlm.Domain.AuditLogs;
 using modular_mlm.Domain.Constants;
 using modular_mlm.Domain.Organizations;
@@ -84,6 +85,33 @@ public sealed class OrganizationAdministrationTests : TestBase
         await SendAsync(new CreateOrganizationCommand("First", slug, "PHP"));
         await Should.ThrowAsync<ConflictException>(() =>
             SendAsync(new CreateOrganizationCommand("Second", slug, "PHP"))
+        );
+    }
+
+    [Test]
+    public async Task PlatformAdministratorCanResumeAnUnpublishedOrganizationBySlug()
+    {
+        await RunAsUserAsync(
+            "platform-admin@local",
+            "Platform1234!",
+            [Roles.PlatformAdministrator]
+        );
+        var slug = $"resume-{Guid.NewGuid():N}";
+        var organizationId = await SendAsync(
+            new CreateOrganizationCommand("Resume Store", slug, "PHP", "UTC", "en-PH")
+        );
+
+        var provisioning = await SendAsync(new GetOrganizationProvisioningQuery(slug));
+
+        provisioning.ShouldNotBeNull();
+        provisioning.OrganizationId.ShouldBe(organizationId);
+        provisioning.Name.ShouldBe("Resume Store");
+        provisioning.Slug.ShouldBe(slug);
+        provisioning.BrandingPublished.ShouldBeFalse();
+
+        await RunAsAdministratorAsync(organizationId);
+        await Should.ThrowAsync<ForbiddenAccessException>(() =>
+            SendAsync(new GetOrganizationProvisioningQuery(slug))
         );
     }
 }

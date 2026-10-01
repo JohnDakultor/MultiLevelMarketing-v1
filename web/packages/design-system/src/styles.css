@@ -651,12 +651,26 @@
 }
 
 .application-shell__navigation-list a {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 0.1rem;
   border-radius: 0.45rem;
   padding: 0.6rem 0.75rem;
   color: var(--ds-muted);
   text-decoration: none;
+}
+
+.application-shell__nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  stroke-width: 1.8;
+}
+
+.application-shell__nav-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
 }
 
 .application-shell__navigation-list a:hover,
@@ -764,6 +778,276 @@
   padding-top: 1rem;
 }
 
+/* Enterprise workspaces keep navigation persistent, information dense, and
+   visually separate from the operational canvas. This appearance is opt-in so
+   public storefront and agent experiences retain their existing character. */
+.application-shell--workspace.application-shell--enterprise {
+  grid-template-columns: 17rem minmax(0, 1fr);
+  grid-template-rows: 3.75rem minmax(0, 1fr);
+  background: #f4f6f8;
+}
+
+.application-shell--enterprise .application-shell__header {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 3.75rem;
+  padding: 0.5rem clamp(1rem, 2vw, 1.5rem);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 1px 0 rgb(16 24 22 / 4%);
+}
+
+.application-shell__workspace-context {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.application-shell__workspace-context > span {
+  color: var(--ds-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.application-shell__workspace-context > strong {
+  overflow: hidden;
+  font-size: 0.925rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-shell--enterprise .application-shell__sidebar {
+  position: sticky;
+  z-index: 25;
+  top: 0;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: grid;
+  height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-right: 0;
+  padding: 0;
+  background: #10231e;
+  color: #f7faf9;
+  box-shadow: 1px 0 0 rgb(255 255 255 / 5%);
+}
+
+.application-shell__sidebar-brand {
+  min-height: 4.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 9%);
+  padding: 1rem 1.125rem;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar-brand
+  .application-shell__brand {
+  width: 100%;
+  color: white;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar-brand
+  .application-shell__brand-mark {
+  background: var(--brand-accent);
+  color: #10231e;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar-brand
+  .application-shell__brand-image {
+  border: 1px solid rgb(255 255 255 / 16%);
+  background-color: white;
+}
+
+.application-shell--enterprise .application-shell__sidebar-brand small {
+  color: rgb(255 255 255 / 58%);
+}
+
+.application-shell--enterprise .application-shell__sidebar > nav {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.8rem 0.7rem 1.5rem;
+  scrollbar-color: rgb(255 255 255 / 18%) transparent;
+  scrollbar-width: thin;
+}
+
+.application-shell__navigation-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.application-shell__navigation-group {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.application-shell__navigation-group > p {
+  margin: 0;
+  padding: 0 0.65rem;
+  color: rgb(255 255 255 / 42%);
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__navigation-list {
+  gap: 0.15rem;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__navigation-list
+  a {
+  position: relative;
+  min-height: 2.35rem;
+  gap: 0.7rem;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  color: rgb(255 255 255 / 72%);
+  font-size: 0.85rem;
+  font-weight: 540;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__navigation-list
+  a:hover {
+  background: rgb(255 255 255 / 7%);
+  color: white;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__navigation-list
+  a[aria-current="page"] {
+  background: color-mix(in srgb, var(--brand-accent) 16%, transparent);
+  color: white;
+  font-weight: 680;
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__navigation-list
+  a[aria-current="page"]::before {
+  position: absolute;
+  top: 0.45rem;
+  bottom: 0.45rem;
+  left: -0.7rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-accent);
+  content: "";
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  .application-shell__nav-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: rgb(255 255 255 / 54%);
+}
+
+.application-shell--enterprise
+  .application-shell__sidebar
+  a[aria-current="page"]
+  .application-shell__nav-icon {
+  color: var(--brand-accent);
+}
+
+.application-shell__sidebar-footer {
+  overflow: hidden;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+  padding: 0.85rem 1.25rem;
+  color: rgb(255 255 255 / 48%);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-shell--enterprise .application-shell__main {
+  grid-column: 2;
+  grid-row: 2;
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.application-shell--enterprise .application-shell__main > .content-stack {
+  width: min(100%, 100rem);
+}
+
+.application-shell--enterprise .ds-page-header {
+  align-items: end;
+  border-bottom: 1px solid var(--ds-border);
+  margin-bottom: 0;
+  padding-bottom: 1.15rem;
+}
+
+.application-shell--enterprise .ds-page-header h1 {
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+}
+
+.application-shell--enterprise .ds-page-header p:not(.ds-eyebrow) {
+  max-width: 58rem;
+  font-size: 0.875rem;
+}
+
+.application-shell--enterprise .ds-card,
+.application-shell--enterprise .ds-stat-card,
+.application-shell--enterprise .ds-table-scroll,
+.application-shell--enterprise .ds-filter-bar {
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgb(16 24 22 / 3%);
+}
+
+.application-shell--enterprise .ds-card {
+  padding: 1.125rem;
+}
+
+.application-shell--enterprise .ds-stat-card {
+  min-height: 6.8rem;
+  padding: 1rem;
+}
+
+.application-shell--enterprise .ds-stat-card__value {
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.application-shell--enterprise .ds-table th,
+.application-shell--enterprise .ds-table td {
+  padding: 0.68rem 0.85rem;
+}
+
+.application-shell--enterprise .ds-table th {
+  background: #f4f6f5;
+  color: #52615c;
+  font-size: 0.7rem;
+}
+
+.application-shell--enterprise .ds-field__label {
+  font-size: 0.82rem;
+}
+
+.application-shell--enterprise .ds-field input,
+.application-shell--enterprise .ds-field textarea,
+.application-shell--enterprise .ds-field select {
+  min-height: 2.4rem;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.875rem;
+}
+
+.application-shell--enterprise .ds-button {
+  min-height: 2.35rem;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 900px) {
   .application-shell--workspace {
     display: block;
@@ -778,6 +1062,49 @@
   .application-shell__menu-button {
     display: inline-flex;
     margin-left: auto;
+  }
+
+  .application-shell--workspace.application-shell--enterprise {
+    display: block;
+  }
+
+  .application-shell--enterprise .application-shell__header {
+    min-height: 3.75rem;
+  }
+
+  .application-shell--enterprise .application-shell__workspace-context {
+    display: none;
+  }
+
+  .application-shell--enterprise .application-shell__header::before {
+    color: var(--ds-text);
+    font-size: 0.9rem;
+    font-weight: 700;
+    content: "Administration";
+  }
+
+  .application-shell--enterprise .application-shell__mobile-dialog {
+    padding: 0;
+  }
+
+  .application-shell--enterprise .application-shell__mobile-header,
+  .application-shell--enterprise .application-shell__mobile-dialog > nav,
+  .application-shell--enterprise .application-shell__mobile-account {
+    margin: 0;
+    padding: 1rem;
+  }
+
+  .application-shell--enterprise
+    .application-shell__mobile-dialog
+    .application-shell__navigation-groups {
+    gap: 1.15rem;
+  }
+
+  .application-shell--enterprise
+    .application-shell__mobile-dialog
+    .application-shell__navigation-group
+    > p {
+    color: var(--ds-muted);
   }
 }
 

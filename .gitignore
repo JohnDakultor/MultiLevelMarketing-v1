@@ -493,3 +493,8 @@ $RECYCLE.BIN/
 *.db
 *.db-shm
 *.db-wal
+
+# Project documentation is maintained locally and is not published to GitHub.
+docs/
+*.md
+/SDD_IMPLEMENTATION_SUBPHASES.txt

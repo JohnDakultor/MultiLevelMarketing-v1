@@ -1,6 +1,10 @@
 "use client";
 
-import { useApiClient, useFormSubmission } from "@modular-mlm/api-client";
+import {
+  ApiError,
+  useApiClient,
+  useFormSubmission,
+} from "@modular-mlm/api-client";
 import {
   Alert,
   Button,
@@ -31,23 +35,38 @@ export default function NewOrganizationPage() {
     const form = new FormData(event.currentTarget);
 
     const completed = await feedback.submit(async () => {
+      const logo = optionalFile(form, "logo");
+      const favicon = optionalFile(form, "favicon");
+      validateBrandingAsset(logo, "Logo");
+      validateBrandingAsset(favicon, "Favicon");
+
       let id = organizationId;
       if (!id) {
-        setStep("creating");
-        id = await adminApi.createOrganization(api, {
-          name: requiredText(form, "name"),
-          slug: requiredText(form, "slug"),
-          currencyCode: requiredText(form, "currencyCode").toUpperCase(),
-          timeZone: requiredText(form, "timeZone"),
-          locale: requiredText(form, "locale"),
-        });
+        const requestedSlug = requiredText(form, "slug");
+        const existing = await findExistingProvisioning(api, requestedSlug);
+        if (existing?.brandingPublished) {
+          throw new Error(
+            `The organization slug '${requestedSlug}' is already published and cannot be provisioned again.`,
+          );
+        }
+
+        if (existing) {
+          id = existing.organizationId;
+        } else {
+          setStep("creating");
+          id = await adminApi.createOrganization(api, {
+            name: requiredText(form, "name"),
+            slug: requestedSlug,
+            currencyCode: requiredText(form, "currencyCode").toUpperCase(),
+            timeZone: requiredText(form, "timeZone"),
+            locale: requiredText(form, "locale"),
+          });
+        }
         setOrganizationId(id);
-        setCreatedSlug(requiredText(form, "slug"));
+        setCreatedSlug(requestedSlug);
       }
 
       setStep("assets");
-      const logo = optionalFile(form, "logo");
-      const favicon = optionalFile(form, "favicon");
       const [storedLogo, storedFavicon] = await Promise.all([
         logo ? adminApi.uploadBrandingAsset(api, id, "Logo", logo) : null,
         favicon
@@ -264,21 +283,24 @@ export default function NewOrganizationPage() {
             <h2>Brand assets</h2>
             <p>
               Upload a file or provide an existing absolute URL. An uploaded
-              file takes precedence.
+              file takes precedence. Files are validated before the organization
+              is created.
             </p>
             <div className="form-grid">
               <InputField
                 name="logo"
                 label="Logo file"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                accept="image/png,image/jpeg"
+                hint="PNG or JPEG, up to 5 MB and 4096 × 4096 pixels."
               />
               <InputField name="logoUrl" label="Existing logo URL" type="url" />
               <InputField
                 name="favicon"
                 label="Favicon file"
                 type="file"
-                accept="image/png,image/x-icon,image/svg+xml"
+                accept="image/png,image/x-icon"
+                hint="PNG or ICO, up to 5 MB and 512 × 512 pixels."
               />
               <InputField
                 name="faviconUrl"
@@ -321,6 +343,42 @@ function optionalText(data: FormData, name: string): string | null {
 function optionalFile(data: FormData, name: string): File | null {
   const value = data.get(name);
   return value instanceof File && value.size > 0 ? value : null;
+}
+
+async function findExistingProvisioning(
+  api: Parameters<typeof adminApi.organizationProvisioning>[0],
+  slug: string,
+) {
+  try {
+    return await adminApi.organizationProvisioning(api, slug);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+function validateBrandingAsset(
+  file: File | null,
+  kind: "Logo" | "Favicon",
+): void {
+  if (!file) return;
+
+  const maximumBytes = 5 * 1024 * 1024;
+  if (file.size > maximumBytes) {
+    throw new Error(`${kind} files must be 5 MB or smaller.`);
+  }
+
+  const allowedTypes =
+    kind === "Logo"
+      ? new Set(["image/png", "image/jpeg"])
+      : new Set(["image/png", "image/x-icon", "image/vnd.microsoft.icon"]);
+  if (!allowedTypes.has(file.type.toLowerCase())) {
+    throw new Error(
+      kind === "Logo"
+        ? "Logo files must use PNG or JPEG format."
+        : "Favicon files must use PNG or ICO format.",
+    );
+  }
 }
 
 function slugify(value: string): string {

@@ -20,6 +20,7 @@ import type {
   InventoryPageDto,
   InventoryHistoryPageDto,
   OperationalHealthDto,
+  OrganizationProvisioningDto,
   PayoutHistoryItemDto,
   PayoutDetailsDto,
   AdminPayoutAccountsPageDto,
@@ -41,6 +42,10 @@ const admin = (id: string) => `${org(id)}/admin`;
 export const adminApi = {
   createOrganization: (api: ApiClient, body: CreateOrganizationRequest) =>
     api.request<string>("/api/organizations", { method: "POST", body }),
+  organizationProvisioning: (api: ApiClient, slug: string) =>
+    api.request<OrganizationProvisioningDto>(
+      `/api/organizations/provisioning/${encodeURIComponent(slug)}`,
+    ),
   uploadBrandingAsset: (
     api: ApiClient,
     organizationId: string,

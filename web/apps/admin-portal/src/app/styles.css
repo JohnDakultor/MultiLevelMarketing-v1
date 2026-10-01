@@ -17,6 +17,49 @@ body {
   margin: 0;
 }
 
+.account-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.account-avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, white);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 9%, white);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.account-identity__copy {
+  display: grid;
+  max-width: 13rem;
+  gap: 0.05rem;
+  line-height: 1.15;
+}
+
+.account-identity__copy strong,
+.account-identity__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-identity__copy strong {
+  font-size: 0.8rem;
+}
+
+.account-identity__copy small {
+  font-size: 0.68rem;
+}
+
 h1,
 h2,
 h3,
@@ -92,6 +135,31 @@ code {
 
 .content-stack {
   gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.application-shell--enterprise .content-stack {
+  gap: 1.15rem;
+}
+
+.application-shell--enterprise .metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.8rem;
+}
+
+.application-shell--enterprise .task-list {
+  margin-top: 0.75rem;
+}
+
+.application-shell--enterprise .task-list__item {
+  min-height: 2.75rem;
+  padding: 0.55rem 0;
+  font-size: 0.875rem;
+}
+
+.application-shell--enterprise .task-list__item strong {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  font-size: 0.78rem;
 }
 
 .content-stack > h2,

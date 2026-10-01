@@ -3,6 +3,26 @@ import test from "node:test";
 import { ApiClient } from "@modular-mlm/api-client";
 import { adminApi } from "./adminApi";
 
+test("organization provisioning lookup encodes the slug for recovery", async () => {
+  const requests: string[] = [];
+  const api = new ApiClient({
+    fetchImplementation: async (input) => {
+      requests.push(String(input));
+      return Response.json({
+        organizationId: "organization-id",
+        name: "La De Perfum",
+        slug: "la-de-perfum",
+        brandingPublished: false,
+      });
+    },
+  });
+
+  const result = await adminApi.organizationProvisioning(api, "la-de-perfum");
+
+  assert.equal(requests.at(-1), "/api/organizations/provisioning/la-de-perfum");
+  assert.equal(result.brandingPublished, false);
+});
+
 test("inventory adjustment carries the caller idempotency key and expected version", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const api = new ApiClient({

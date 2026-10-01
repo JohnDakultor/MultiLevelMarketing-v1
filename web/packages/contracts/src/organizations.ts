@@ -14,6 +14,13 @@ export interface CreateOrganizationRequest {
   locale: string;
 }
 
+export interface OrganizationProvisioningDto {
+  organizationId: Guid;
+  name: string;
+  slug: string;
+  brandingPublished: boolean;
+}
+
 export interface UpdateBrandingRequest {
   storeTitle: string;
   supportEmail: string;

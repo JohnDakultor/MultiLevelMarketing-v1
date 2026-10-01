@@ -8,6 +8,8 @@ using modular_mlm.Application.Organizations.Commands.UpdateOrganizationProfile;
 using modular_mlm.Application.Organizations.Commands.VerifyOrganizationDomain;
 using modular_mlm.Application.Organizations.Queries.GetAdminOrganizationSettings;
 using modular_mlm.Application.Organizations.Queries.GetAdminOrganizationSettings.Models;
+using modular_mlm.Application.Organizations.Queries.GetOrganizationProvisioning;
+using modular_mlm.Application.Organizations.Queries.GetOrganizationProvisioning.Models;
 using modular_mlm.Application.Organizations.Queries.GetPublicOrganizationConfig.Models;
 using modular_mlm.Domain.Constants;
 using modular_mlm.Web.Contracts.Organizations;
@@ -23,6 +25,9 @@ public sealed class OrganizationAdministration : IEndpointGroup
     {
         group
             .MapPost(CreateOrganization, string.Empty)
+            .RequireAuthorization(policy => policy.RequireRole(Roles.PlatformAdministrator));
+        group
+            .MapGet(GetProvisioning, "provisioning/{slug}")
             .RequireAuthorization(policy => policy.RequireRole(Roles.PlatformAdministrator));
         group.MapGet(GetHostPublicConfig, "public-config").AllowAnonymous();
 
@@ -72,6 +77,17 @@ public sealed class OrganizationAdministration : IEndpointGroup
             )
         );
         return TypedResults.Created($"/api/organizations/{id}/admin/settings", id);
+    }
+
+    public static async Task<Results<Ok<OrganizationProvisioningDto>, NotFound>> GetProvisioning(
+        ISender sender,
+        string slug
+    )
+    {
+        var provisioning = await sender.Send(new GetOrganizationProvisioningQuery(slug));
+        return provisioning is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(provisioning);
     }
 
     public static Results<Ok<PublicOrganizationConfigDto>, NotFound> GetHostPublicConfig(

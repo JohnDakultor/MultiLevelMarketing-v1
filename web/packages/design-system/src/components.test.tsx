@@ -161,3 +161,43 @@ test("mobile navigation is labelled and restores focus when closed", async () =>
     "page",
   );
 });
+
+test("enterprise workspace groups navigation and exposes the active route context", () => {
+  const view = render(
+    <ApplicationShell
+      variant="workspace"
+      appearance="enterprise"
+      brand={{ name: "GreenZero", contextLabel: "Admin Portal" }}
+      navigation={[
+        {
+          href: "/",
+          label: "Dashboard",
+          group: "Overview",
+          icon: "dashboard",
+        },
+        {
+          href: "/orders",
+          label: "Orders & refunds",
+          group: "Commerce",
+          icon: "orders",
+        },
+      ]}
+      currentPath="/orders/ORD-1001"
+      footer="Administering GreenZero"
+    >
+      <h1>Orders</h1>
+    </ApplicationShell>,
+  );
+
+  assert.ok(view.getAllByText("Overview").length >= 2);
+  assert.ok(view.getAllByText("Commerce").length >= 2);
+  assert.ok(view.getByText("Administering GreenZero"));
+  assert.ok(view.getAllByText("Admin Portal").length >= 2);
+  assert.ok(view.getAllByText("Orders & refunds").length >= 2);
+  assert.equal(
+    view
+      .getAllByRole("link", { name: "Orders & refunds" })[0]
+      ?.getAttribute("aria-current"),
+    "page",
+  );
+});
