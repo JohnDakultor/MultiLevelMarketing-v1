@@ -14,6 +14,7 @@ import {
   PageHeader,
   TextareaField,
 } from "@modular-mlm/design-system";
+import { organizationSelectionUrl } from "@modular-mlm/organization-context";
 import { useState, type FormEvent } from "react";
 import { adminApi } from "../../../../features/api/adminApi";
 
@@ -139,13 +140,18 @@ export default function NewOrganizationPage() {
               organization ID is <code>{organizationId}</code>.
             </p>
             <p>
-              For local development, set{" "}
-              <code>NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG</code> to{" "}
-              <code>{createdSlug}</code> in the portal environment files and
-              restart the Next.js apps. Then open the Admin Portal root path
-              <code> /</code>; refreshing this platform creation URL will keep
-              you on the creation screen.
+              Open the organization now to continue administration. Tenant
+              selection is stored by the portal and does not require an Azure
+              deployment or environment-variable change.
             </p>
+            <Button
+              onClick={() => {
+                if (createdSlug)
+                  window.location.assign(organizationSelectionUrl(createdSlug));
+              }}
+            >
+              Open organization
+            </Button>
             <Button
               onClick={() => {
                 setName("");

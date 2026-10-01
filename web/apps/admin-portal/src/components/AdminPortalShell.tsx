@@ -61,10 +61,10 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
         brand={{ name: "Modular MLM", contextLabel: "Platform Administration" }}
         navigation={[
           {
-            href: "/",
-            label: "Organization dashboard",
+            href: "/platform/organizations",
+            label: "Organizations",
             group: "Platform",
-            icon: "dashboard",
+            icon: "organization",
           },
           {
             href: "/platform/organizations/new",
@@ -94,7 +94,17 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
       <PortalState>
         <ErrorState
           title="Organization unavailable"
-          description="This Admin Portal hostname is not connected to an active organization."
+          description="This hostname is not connected to an active organization and no organization has been selected in this browser."
+          action={
+            hasRole(authentication.user, Roles.platformAdministrator) ? (
+              <Link
+                className="ds-button ds-button--primary"
+                href="/platform/organizations"
+              >
+                Choose organization
+              </Link>
+            ) : undefined
+          }
         />
       </PortalState>
     );

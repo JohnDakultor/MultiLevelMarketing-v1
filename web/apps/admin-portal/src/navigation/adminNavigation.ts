@@ -19,6 +19,13 @@ interface AdminNavigationItem extends ApplicationNavigationItem {
 
 const navigation: readonly AdminNavigationItem[] = [
   {
+    href: "/platform/organizations",
+    label: "Organizations",
+    group: "Platform",
+    icon: "organization",
+    capability: Capabilities.platformAdministration,
+  },
+  {
     href: "/platform/organizations/new",
     label: "Create organization",
     group: "Platform",

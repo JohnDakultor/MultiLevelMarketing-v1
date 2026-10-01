@@ -131,7 +131,6 @@ IResourceBuilder<ContainerResource> AddFrontend(string name, string dockerfilePa
         .WithEnvironment("PORT", "8080")
         .WithEnvironment("HOSTNAME", "0.0.0.0")
         .WithEnvironment("BACKEND_API_BASE_URL", web.GetEndpoint("http"))
-        .WithEnvironment("ORGANIZATION_SLUG", organizationSlug)
         .WithReference(web)
         .WaitFor(web)
         .WithExternalHttpEndpoints();

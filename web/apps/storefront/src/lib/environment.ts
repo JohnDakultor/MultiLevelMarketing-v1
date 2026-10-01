@@ -7,8 +7,10 @@ export function storefrontEnvironment(): StorefrontEnvironment {
   return {
     apiBaseUrl: normalizeOptionalUrl(process.env.NEXT_PUBLIC_API_BASE_URL),
     developmentOrganizationSlug:
-      process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim() ||
-      undefined,
+      process.env.NODE_ENV === "development"
+        ? process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim() ||
+          undefined
+        : undefined,
   };
 }
 

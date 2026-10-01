@@ -3,7 +3,8 @@ import type {
   ProductPage,
   PublicOrganizationConfigDto,
 } from "@modular-mlm/contracts";
-import { headers } from "next/headers";
+import { organizationSelectionCookie } from "@modular-mlm/organization-context";
+import { cookies, headers } from "next/headers";
 import { CatalogPage } from "./CatalogPages";
 
 const backendOrigin = (
@@ -16,11 +17,15 @@ export async function ServerCatalogPage({
   mode?: "home" | "catalog";
 } = {}) {
   const requestHeaders = await headers();
+  const cookieStore = await cookies();
   const hostName =
     requestHeaders.get("x-forwarded-host") ??
     requestHeaders.get("host") ??
     "localhost";
-  const organization = await resolveOrganization(hostName);
+  const organization = await resolveOrganization(
+    hostName,
+    cookieStore.get(organizationSelectionCookie)?.value,
+  );
   if (!organization) return <CatalogPage mode={mode} />;
 
   const [products, categories] = await Promise.all([
@@ -42,10 +47,13 @@ export async function ServerCatalogPage({
 
 async function resolveOrganization(
   hostName: string,
+  selectedSlug?: string,
 ): Promise<PublicOrganizationConfigDto | null> {
   const slug =
-    process.env.ORGANIZATION_SLUG?.trim() ||
-    process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim();
+    selectedSlug ||
+    (process.env.NODE_ENV === "development"
+      ? process.env.NEXT_PUBLIC_DEVELOPMENT_ORGANIZATION_SLUG?.trim()
+      : undefined);
   if (slug)
     return getPublic<PublicOrganizationConfigDto>(
       `/api/organizations/${encodeURIComponent(slug)}/public-config`,
