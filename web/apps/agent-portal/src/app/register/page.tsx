@@ -7,14 +7,18 @@ import {
   InputField,
   PageHeader,
 } from "@modular-mlm/design-system";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { FormEvent } from "react";
+import { createAgentOnboardingPath } from "../../features/referrals/agentInvitation";
 
 export default function AgentRegisterPage() {
   const api = useApiClient();
   const router = useRouter();
+  const searchParameters = useSearchParams();
   const feedback = useFormSubmission();
+  const sponsorReferralCode = searchParameters.get("sponsor")?.trim() ?? "";
+  const onboardingPath = createAgentOnboardingPath(sponsorReferralCode);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +38,7 @@ export default function AgentRegisterPage() {
     }, "Account created.");
     if (created)
       router.replace(
-        `/sign-in?registered=true&email=${encodeURIComponent(email)}`,
+        `/sign-in?registered=true&email=${encodeURIComponent(email)}&returnTo=${encodeURIComponent(onboardingPath)}`,
       );
   }
 
@@ -46,6 +50,11 @@ export default function AgentRegisterPage() {
           title="Create your account"
           description="Create the identity you will use to submit and track your Agent application in this portal."
         />
+        {sponsorReferralCode && (
+          <p>
+            Sponsor referral code: <strong>{sponsorReferralCode}</strong>
+          </p>
+        )}
         <FormErrorSummary
           errors={feedback.fieldErrors}
           generalErrors={feedback.formErrors}
@@ -85,7 +94,12 @@ export default function AgentRegisterPage() {
           Create Agent Portal account
         </Button>
         <p className="auth-form__alternate-action">
-          Already have an account? <Link href="/sign-in">Sign in</Link>
+          Already have an account?{" "}
+          <Link
+            href={`/sign-in?returnTo=${encodeURIComponent(onboardingPath)}`}
+          >
+            Sign in
+          </Link>
         </p>
       </form>
     </div>

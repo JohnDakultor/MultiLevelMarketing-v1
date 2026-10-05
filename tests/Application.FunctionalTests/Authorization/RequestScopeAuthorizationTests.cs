@@ -114,6 +114,74 @@ public sealed class RequestScopeAuthorizationTests : TestBase
     }
 
     [Test]
+    public async Task AgentApplicationResolvesAnActiveSponsorByReferralCodeWithinTheTenant()
+    {
+        var organization = Organization.Create(
+            "Sponsored Application",
+            $"sponsored-application-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        var sponsor = Agent.Apply(
+            organization.Id,
+            Guid.NewGuid().ToString(),
+            "AG-SPONSOR",
+            "REF-SPONSOR",
+            DateTimeOffset.UtcNow
+        );
+        sponsor.Activate(DateTimeOffset.UtcNow);
+        await AddAsync(organization);
+        await AddAsync(sponsor);
+        await RunAsUserAsync(
+            $"recruit-{Guid.NewGuid():N}@local",
+            "Testing1234!",
+            []
+        );
+
+        var agentId = await SendAsync(
+            new ApplyAsAgentCommand(organization.Id, null, " ref-sponsor ")
+        );
+
+        var agent = await FindAsync<Agent>(agentId);
+        agent.ShouldNotBeNull();
+        agent.SponsorAgentId.ShouldBe(sponsor.Id);
+    }
+
+    [Test]
+    public async Task AgentApplicationDoesNotResolveASponsorCodeFromAnotherTenant()
+    {
+        var organization = Organization.Create(
+            "Recruiting Tenant",
+            $"recruiting-tenant-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        var foreignOrganization = Organization.Create(
+            "Foreign Sponsor Tenant",
+            $"foreign-sponsor-tenant-{Guid.NewGuid():N}",
+            "PHP"
+        );
+        var foreignSponsor = Agent.Apply(
+            foreignOrganization.Id,
+            Guid.NewGuid().ToString(),
+            "AG-FOREIGN",
+            "REF-FOREIGN",
+            DateTimeOffset.UtcNow
+        );
+        foreignSponsor.Activate(DateTimeOffset.UtcNow);
+        await AddAsync(organization);
+        await AddAsync(foreignOrganization);
+        await AddAsync(foreignSponsor);
+        await RunAsUserAsync(
+            $"tenant-recruit-{Guid.NewGuid():N}@local",
+            "Testing1234!",
+            []
+        );
+
+        await Should.ThrowAsync<KeyNotFoundException>(() =>
+            SendAsync(new ApplyAsAgentCommand(organization.Id, null, "REF-FOREIGN"))
+        );
+    }
+
+    [Test]
     public async Task AgentApplicationRequiresAnAuthenticatedIdentity()
     {
         var organization = Organization.Create(

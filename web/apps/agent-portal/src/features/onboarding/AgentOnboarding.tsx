@@ -17,6 +17,7 @@ import {
   StatusBadge,
 } from "@modular-mlm/design-system";
 import { useEffect, type FormEvent, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { agentApi } from "../api/agentApi";
 import { date } from "../shared/AgentScreenState";
 import { AgentStatusBadge } from "../shared/status";
@@ -38,6 +39,8 @@ export function AgentOnboarding({
 }) {
   const api = useApiClient();
   const submission = useFormSubmission();
+  const searchParameters = useSearchParams();
+  const invitedByCode = searchParameters.get("sponsor")?.trim() ?? "";
   const hasNoApplication = error instanceof ApiError && error.status === 404;
 
   useEffect(() => {
@@ -135,11 +138,11 @@ export function AgentOnboarding({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const sponsor = String(
-      new FormData(form).get("sponsorAgentId") ?? "",
+    const sponsorReferralCode = String(
+      new FormData(form).get("sponsorReferralCode") ?? "",
     ).trim();
     const submitted = await submission.submit(
-      () => agentApi.apply(api, organizationId, sponsor || null),
+      () => agentApi.apply(api, organizationId, sponsorReferralCode || null),
       "Agent application submitted.",
     );
     if (submitted) reload();
@@ -167,11 +170,13 @@ export function AgentOnboarding({
               id={submission.errorSummaryId}
             />
             <InputField
-              name="sponsorAgentId"
-              label="Sponsor Agent ID (optional)"
-              hint="Enter the sponsor's UUID only if it was provided to you. The sponsor must be active in this organization."
-              pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"
-              error={submission.fieldError("sponsorAgentId")}
+              name="sponsorReferralCode"
+              label="Sponsor referral code (optional)"
+              hint="Invitation links fill this automatically. The code must belong to an active Agent in this organization."
+              defaultValue={invitedByCode}
+              maxLength={64}
+              autoComplete="off"
+              error={submission.fieldError("sponsorReferralCode")}
             />
             <Button
               type="submit"

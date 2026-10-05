@@ -17,11 +17,12 @@ import {
 } from "@modular-mlm/design-system";
 import QRCode from "qrcode";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAgentStorefrontUrl } from "../../app/providers";
 import { agentApi } from "../api/agentApi";
 import { Failure, Loading } from "../shared/AgentScreenState";
 import { useAgentScope } from "../shared/useAgentScope";
+import { createAgentInvitationUrl } from "./agentInvitation";
 
 export function ReferralToolsPage() {
   const api = useApiClient();
@@ -30,6 +31,11 @@ export function ReferralToolsPage() {
   const generation = useFormSubmission();
   const scope = useAgentScope();
   const storefrontUrl = useAgentStorefrontUrl();
+  const agentPortalOrigin = useSyncExternalStore(
+    subscribeToStaticBrowserValue,
+    readBrowserOrigin,
+    readServerOrigin,
+  );
   const referral = useApiQuery(
     (client, signal) => agentApi.referral(client, scope.organizationId, signal),
     [scope.organizationId],
@@ -60,6 +66,10 @@ export function ReferralToolsPage() {
   const [productLink, setProductLink] = useState("");
   const [qr, setQr] = useState("");
   const [message, setMessage] = useState("");
+  const agentInviteLink =
+    agentPortalOrigin && referral.data?.referralCode
+      ? createAgentInvitationUrl(agentPortalOrigin, referral.data.referralCode)
+      : "";
   const generalLink = dashboard.data?.storefrontUrl
     ? new URL(dashboard.data.storefrontUrl, storefrontUrl).toString()
     : "";
@@ -199,6 +209,22 @@ export function ReferralToolsPage() {
             >
               Regenerate code
             </Button>
+            <h2>Invite a new Agent</h2>
+            <p>
+              Share this Agent Portal link. Your referral code will be attached
+              to the application as the sponsor after the invited person creates
+              an account and signs in.
+            </p>
+            <p className="breakable">{agentInviteLink}</p>
+            <Button
+              variant="secondary"
+              disabled={
+                !context.data?.canShareReferralLinks || !agentInviteLink
+              }
+              onClick={() => void copy(agentInviteLink)}
+            >
+              Copy Agent invitation
+            </Button>
             <h2>Product-specific link</h2>
             <SelectField
               id="referral-product"
@@ -207,7 +233,7 @@ export function ReferralToolsPage() {
               onChange={(event) => setProductId(event.target.value)}
             >
               <option value="">Select product</option>
-              {products.data?.map((product) => (
+              {products.data?.items.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name}
                 </option>
@@ -267,6 +293,18 @@ export function ReferralToolsPage() {
       <ToastRegion>{message && <p>{message}</p>}</ToastRegion>
     </div>
   );
+}
+
+function subscribeToStaticBrowserValue(): () => void {
+  return () => undefined;
+}
+
+function readBrowserOrigin(): string {
+  return window.location.origin;
+}
+
+function readServerOrigin(): string {
+  return "";
 }
 
 function ReferralMetric({ label, value }: { label: string; value: string }) {

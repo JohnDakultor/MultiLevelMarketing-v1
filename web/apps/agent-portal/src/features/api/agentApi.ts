@@ -27,7 +27,7 @@ import type {
   ReferralDashboardDto,
   WalletEntriesPageDto,
   WalletSummaryDto,
-  ProductDto,
+  ProductPage,
 } from "@modular-mlm/contracts";
 
 const org = (id: string) => `/api/organizations/${id}`;
@@ -38,11 +38,11 @@ export const agentApi = {
   apply: (
     api: ApiClient,
     organizationId: string,
-    sponsorAgentId: string | null,
+    sponsorReferralCode: string | null,
   ) =>
     api.request<string>(`${org(organizationId)}/agents/applications`, {
       method: "POST",
-      body: { sponsorAgentId },
+      body: { sponsorReferralCode },
     }),
   application: (api: ApiClient, organizationId: string, signal?: AbortSignal) =>
     api.request<AgentApplicationDto>(
@@ -422,7 +422,7 @@ export const agentApi = {
       { method: "POST", body: { productId } },
     ),
   products: (api: ApiClient, organizationId: string, signal?: AbortSignal) =>
-    api.request<ProductDto[]>(
+    api.request<ProductPage>(
       `${org(organizationId)}/products?page=1&pageSize=100`,
       { anonymous: true, signal },
     ),

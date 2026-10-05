@@ -43,11 +43,31 @@ public sealed class ApplyAsAgentCommandHandler(
                 "This user already has an agent profile for the organization."
             );
 
-        if (request.SponsorAgentId is { } sponsorAgentId)
+        var sponsorAgentId = request.SponsorAgentId;
+        if (!string.IsNullOrWhiteSpace(request.SponsorReferralCode))
+        {
+            var normalizedReferralCode = request.SponsorReferralCode.Trim().ToUpperInvariant();
+            sponsorAgentId = await db
+                .Agents.AsNoTracking()
+                .Where(candidate =>
+                    candidate.OrganizationId == request.OrganizationId
+                    && candidate.ReferralCode == normalizedReferralCode
+                    && candidate.Status == AgentStatus.Active
+                )
+                .Select(candidate => (Guid?)candidate.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (sponsorAgentId is null)
+                throw new KeyNotFoundException(
+                    "An active Sponsor with that referral code was not found in this Organization."
+                );
+        }
+
+        if (sponsorAgentId is { } resolvedSponsorAgentId)
         {
             var sponsorIsActive = await db.Agents.AnyAsync(
                 candidate =>
-                    candidate.Id == sponsorAgentId
+                    candidate.Id == resolvedSponsorAgentId
                     && candidate.OrganizationId == request.OrganizationId
                     && candidate.Status == AgentStatus.Active,
                 cancellationToken
@@ -65,7 +85,7 @@ public sealed class ApplyAsAgentCommandHandler(
             $"AG-{token}",
             token,
             clock.GetUtcNow(),
-            request.SponsorAgentId
+            sponsorAgentId
         );
         agent.SubmitForApproval();
         db.Agents.Add(agent);

@@ -14,13 +14,13 @@ test("Agent application is submitted inside the Agent Portal with the backend DT
     },
   });
 
-  await agentApi.apply(api, "org-1", "sponsor-id");
+  await agentApi.apply(api, "org-1", "REF-SPONSOR");
 
   const request = requests.at(-1)!;
   assert.equal(request.url, "/api/organizations/org-1/agents/applications");
   assert.equal(request.init?.method, "POST");
   assert.deepEqual(JSON.parse(String(request.init?.body)), {
-    sponsorAgentId: "sponsor-id",
+    sponsorReferralCode: "REF-SPONSOR",
   });
 });
 

@@ -79,7 +79,13 @@ public sealed class Agents : IEndpointGroup
         ApplyAsAgentRequest request
     )
     {
-        var id = await sender.Send(new ApplyAsAgentCommand(organizationId, request.SponsorAgentId));
+        var id = await sender.Send(
+            new ApplyAsAgentCommand(
+                organizationId,
+                request.SponsorAgentId,
+                request.SponsorReferralCode
+            )
+        );
         return TypedResults.Created($"/api/organizations/{organizationId}/agents/{id}", id);
     }
 
@@ -191,7 +197,7 @@ public sealed class Agents : IEndpointGroup
     ) => TypedResults.Ok(await sender.Send(new GetAgentLegSummaryQuery(organizationId, agentId)));
 }
 
-public sealed record ApplyAsAgentRequest(Guid? SponsorAgentId);
+public sealed record ApplyAsAgentRequest(Guid? SponsorAgentId, string? SponsorReferralCode);
 
 public sealed record PlaceAgentRequest(Guid ParentAgentId, PlacementSide Side);
 
